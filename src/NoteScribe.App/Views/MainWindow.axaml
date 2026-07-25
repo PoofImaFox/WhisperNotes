@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:NoteScribe.App.ViewModels"
+        xmlns:views="using:NoteScribe.App.Views"
+        xmlns:dd="using:NoteScribe.App.DesignData"
+        mc:Ignorable="d"
+        x:Class="NoteScribe.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        d:DataContext="{x:Static dd:DesignTime.Main}"
+        Title="{Binding WindowTitle}"
+        Width="1360"
+        Height="880"
+        MinWidth="1040"
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <views:CaptureBarView Grid.Row="0" />
+
+    <!-- Error surface: every failure path lands here instead of crashing -->
+    <ItemsControl Grid.Row="1" ItemsSource="{Binding Notifications}" IsVisible="{Binding HasNotifications}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate DataType="vm:NotificationViewModel" x:DataType="vm:NotificationViewModel">
+          <Border Margin="12,8,12,0"
+                  Padding="12,8"
+                  CornerRadius="4"
+                  BorderThickness="1,1,1,1"
+                  Background="{StaticResource BrushSurface}"
+                  BorderBrush="{StaticResource BrushLine}">
+            <Grid ColumnDefinitions="4,Auto,*,Auto,Auto" ColumnSpacing="10">
+              <Border Grid.Column="0" CornerRadius="2" Width="3" Margin="0,1"
+                      Background="{StaticResource BrushAccent}" IsVisible="{Binding IsInfo}" />
+              <Border Grid.Column="0" CornerRadius="2" Width="3" Margin="0,1"
+                      Background="{StaticResource BrushWarn}" IsVisible="{Binding IsWarning}" />
+              <Border Grid.Column="0" CornerRadius="2" Width="3" Margin="0,1"
+                      Background="{StaticResource BrushRec}" IsVisible="{Binding IsError}" />
+
+              <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Classes="muted" Text="{Binding Message}"
+                         TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center" />
+
+              <Button Grid.Column="3"
+                      Classes="ghost"
+                      Padding="9,3"
+                      VerticalAlignment="Center"
+                      Content="{Binding ActionLabel}"
+                      IsVisible="{Binding HasAction}"
+                      Command="{Binding InvokeCommand}" />
+              <Button Grid.Column="4"
+                      Classes="ghost"
+                      Padding="9,3"
+                      VerticalAlignment="Center"
+                      Content="Dismiss"
+                      IsVisible="{Binding CanDismiss}"
+                      Command="{Binding DismissCommand}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <Grid Grid.Row="2" ColumnDefinitions="292,*">
+      <views:NotesBrowserView Grid.Column="0" DataContext="{Binding Browser}" />
+      <views:LiveNotesView Grid.Column="1" DataContext="{Binding Document}" />
+    </Grid>
+
+    <views:StatusBarView Grid.Row="3" />
+  </Grid>
+</Window>

@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NoteScribe.App/NoteScribe.App.csproj" />
+    <Project Path="src/NoteScribe.Cli/NoteScribe.Cli.csproj" />
+    <Project Path="src/NoteScribe.Core/NoteScribe.Core.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,191 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NoteScribe.App.ViewModels"
+             xmlns:dd="using:NoteScribe.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="NoteScribe.App.Views.CaptureBarView"
+             x:DataType="vm:MainWindowViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Main}">
+
+  <Border Background="{StaticResource BrushPanel}"
+          BorderBrush="{StaticResource BrushLine}"
+          BorderThickness="0,0,0,1"
+          Padding="16,12">
+    <Grid ColumnDefinitions="*,20,300,20,236">
+
+      <!-- ============ Audio channel: the control that decides whether the hour was wasted ============ -->
+      <StackPanel Grid.Column="0" Spacing="6">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Column="0" Classes="section" Text="AUDIO CHANNEL" VerticalAlignment="Center" />
+          <Button Grid.Column="2"
+                  Classes="ghost"
+                  Padding="8,2"
+                  Command="{Binding Capture.RefreshChannelsCommand}"
+                  ToolTip.Tip="Re-scan endpoints — devices come and go"
+                  Content="Refresh" />
+        </Grid>
+
+        <ComboBox ItemsSource="{Binding Capture.Channels}"
+                  SelectedItem="{Binding Capture.SelectedChannel}"
+                  PlaceholderText="No audio endpoints found"
+                  MaxDropDownHeight="420"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate DataType="vm:ChannelOptionViewModel" x:DataType="vm:ChannelOptionViewModel">
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Classes="badge" Classes.loopback="{Binding IsLoopback}">
+                  <TextBlock Text="{Binding KindLabel}" />
+                </Border>
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                <TextBlock Classes="faint" Text="default" IsVisible="{Binding IsDefault}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
+          <ComboBox.ItemTemplate>
+            <DataTemplate DataType="vm:ChannelOptionViewModel" x:DataType="vm:ChannelOptionViewModel">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="section"
+                           Margin="0,6,0,4"
+                           Text="{Binding GroupHeader}"
+                           IsVisible="{Binding ShowGroupHeader}" />
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                  <Border Grid.Column="0" Classes="badge" Classes.loopback="{Binding IsLoopback}">
+                    <TextBlock Text="{Binding KindLabel}" />
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Classes="faint" Text="{Binding FormatText}" VerticalAlignment="Center" />
+                </Grid>
+                <TextBlock Classes="faint"
+                           Margin="0,0,0,2"
+                           Text="system default endpoint"
+                           IsVisible="{Binding IsDefault}" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Classes="faint" Text="{Binding Capture.ChannelDetailText}" />
+
+        <!-- Pre-flight level meter -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
+          <ItemsControl Grid.Column="0" ItemsSource="{Binding Capture.Meter.Segments}" VerticalAlignment="Center">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="2" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:MeterSegmentViewModel" x:DataType="vm:MeterSegmentViewModel">
+                <Border Classes="led"
+                        Classes.mid="{Binding IsMid}"
+                        Classes.high="{Binding IsHigh}"
+                        Opacity="{Binding IsLit, Converter={StaticResource LitOpacity}}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Classes="mono faint" Text="{Binding Capture.Meter.LevelText}" VerticalAlignment="Center" />
+            <TextBlock Classes="faint"
+                       Foreground="{StaticResource BrushWarn}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding Capture.Meter.IsSilent}"
+                       Text="silent — is this the endpoint Teams plays through?" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+
+      <!-- ============ Model + session metadata ============ -->
+      <StackPanel Grid.Column="2" Spacing="6">
+        <TextBlock Classes="section" Text="WHISPER MODEL" />
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <ComboBox Grid.Column="0"
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding Capture.Models}"
+                    SelectedItem="{Binding Capture.SelectedModel}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="vm:ModelOptionViewModel" x:DataType="vm:ModelOptionViewModel">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                  <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center"
+                           Fill="{StaticResource BrushGood}" IsVisible="{Binding IsDownloaded}" />
+                  <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center"
+                           Fill="{StaticResource BrushFaint}" IsVisible="{Binding !IsDownloaded}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Classes="faint" Text="{Binding StatusText}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <Button Grid.Column="1"
+                  Classes="ghost"
+                  Content="Download"
+                  Command="{Binding Capture.DownloadModelCommand}"
+                  IsVisible="{Binding !Capture.IsDownloading}"
+                  ToolTip.Tip="Fetch the ggml weights for the selected model" />
+          <Button Grid.Column="1"
+                  Classes="ghost"
+                  Content="Cancel"
+                  Command="{Binding Capture.DownloadModelCancelCommand}"
+                  IsVisible="{Binding Capture.IsDownloading}" />
+        </Grid>
+
+        <StackPanel Spacing="3" IsVisible="{Binding Capture.IsDownloading}">
+          <ProgressBar Height="4"
+                       Minimum="0"
+                       Maximum="1"
+                       Value="{Binding Capture.DownloadFraction}"
+                       IsIndeterminate="{Binding Capture.IsDownloadIndeterminate}" />
+          <TextBlock Classes="faint" Text="{Binding Capture.DownloadStatusText}" />
+        </StackPanel>
+
+        <TextBlock Classes="section" Margin="0,4,0,0" Text="SESSION" />
+        <TextBox PlaceholderText="Session title" Text="{Binding Capture.SessionTitle}" />
+        <TextBox PlaceholderText="Project (becomes the folder)" Text="{Binding Capture.Project}" />
+      </StackPanel>
+
+      <!-- ============ Transport ============ -->
+      <StackPanel Grid.Column="4" Spacing="8" VerticalAlignment="Top">
+        <Border Background="{StaticResource BrushRecSoft}"
+                BorderBrush="{StaticResource BrushRec}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10,7"
+                IsVisible="{Binding IsRecording}">
+          <Grid ColumnDefinitions="Auto,Auto,*">
+            <Ellipse Grid.Column="0" Classes="pulse" Width="10" Height="10"
+                     VerticalAlignment="Center" Fill="{StaticResource BrushRec}" />
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="11" FontWeight="Bold" LetterSpacing="1"
+                       Foreground="{StaticResource BrushRec}"
+                       Text="{Binding Capture.RecordingStateText}" />
+            <TextBlock Grid.Column="2" Classes="mono" HorizontalAlignment="Right" VerticalAlignment="Center"
+                       FontSize="16" Text="{Binding Capture.ElapsedText}" />
+          </Grid>
+        </Border>
+
+        <Border Background="{StaticResource BrushSurface}"
+                BorderBrush="{StaticResource BrushLine}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10,7"
+                IsVisible="{Binding !IsRecording}">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="section" Text="NOT RECORDING" />
+            <TextBlock Classes="faint" TextWrapping="Wrap"
+                       Text="Check the meter moves before you trust a client call to this channel." />
+          </StackPanel>
+        </Border>
+
+        <Button Classes="record"
+                Classes.rolling="{Binding IsRecording}"
+                Content="{Binding RecordButtonText}"
+                Command="{Binding ToggleRecordingCommand}"
+                ToolTip.Tip="{Binding RecordButtonHint}" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

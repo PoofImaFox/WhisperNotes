@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NoteScribe.App.ViewModels"
+             xmlns:dd="using:NoteScribe.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="NoteScribe.App.Views.StatusBarView"
+             x:DataType="vm:MainWindowViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Main}">
+
+  <Border Background="{StaticResource BrushPanel}"
+          BorderBrush="{StaticResource BrushLine}"
+          BorderThickness="0,1,0,0"
+          Padding="14,5">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="16">
+
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                 Fill="{StaticResource BrushGood}" IsVisible="{Binding Capture.ModelReady}" />
+        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                 Fill="{StaticResource BrushWarn}" IsVisible="{Binding !Capture.ModelReady}" />
+        <TextBlock Classes="faint" Text="{Binding Capture.ModelStatusText}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                 Fill="{StaticResource BrushAccent}" IsVisible="{Binding Capture.HasChannel}" />
+        <TextBlock Classes="faint" MaxWidth="320"
+                   Text="{Binding Capture.ChannelDetailText}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <Button Grid.Column="2"
+              Classes="ghost"
+              Padding="7,1"
+              FontSize="11"
+              Command="{Binding OpenNotesRootCommand}"
+              ToolTip.Tip="Open the notes root in Explorer">
+        <TextBlock Classes="faint" Text="{Binding NotesRootPath}" MaxWidth="360" />
+      </Button>
+
+      <TextBlock Grid.Column="3"
+                 Classes="faint"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Left"
+                 Text="{Binding StatusMessage}" />
+
+      <TextBlock Grid.Column="4"
+                 Classes="faint"
+                 VerticalAlignment="Center"
+                 MaxWidth="300"
+                 Text="{Binding FfmpegStatusText}" />
+    </Grid>
+  </Border>
+</UserControl>

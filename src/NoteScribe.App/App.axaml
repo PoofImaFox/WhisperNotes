@@ -1,0 +1,261 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:NoteScribe.App.Converters"
+             x:Class="NoteScribe.App.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <FontFamily x:Key="UiFont">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono,Consolas,Menlo,monospace</FontFamily>
+
+    <!-- Fluent derives selection/focus colours from these; without the override the desktop's
+         accent colour bleeds into an otherwise deliberately calm palette. -->
+    <Color x:Key="SystemAccentColor">#5B9BFF</Color>
+    <Color x:Key="SystemAccentColorDark1">#4A82DB</Color>
+    <Color x:Key="SystemAccentColorDark2">#3A69B8</Color>
+    <Color x:Key="SystemAccentColorDark3">#2B5194</Color>
+    <Color x:Key="SystemAccentColorLight1">#7DB0FF</Color>
+    <Color x:Key="SystemAccentColorLight2">#9CC4FF</Color>
+    <Color x:Key="SystemAccentColorLight3">#BBD7FF</Color>
+
+    <SolidColorBrush x:Key="BrushWindow" Color="#11131A" />
+    <SolidColorBrush x:Key="BrushPanel" Color="#181B23" />
+    <SolidColorBrush x:Key="BrushSidebar" Color="#0D0F15" />
+    <SolidColorBrush x:Key="BrushSurface" Color="#1E222B" />
+    <SolidColorBrush x:Key="BrushLine" Color="#2A303B" />
+    <SolidColorBrush x:Key="BrushLineSoft" Color="#1E232C" />
+    <SolidColorBrush x:Key="BrushText" Color="#E6EAF2" />
+    <SolidColorBrush x:Key="BrushMuted" Color="#8B94A6" />
+    <SolidColorBrush x:Key="BrushFaint" Color="#5A6474" />
+    <SolidColorBrush x:Key="BrushAccent" Color="#5B9BFF" />
+    <SolidColorBrush x:Key="BrushAccentSoft" Color="#1B2C48" />
+    <SolidColorBrush x:Key="BrushRec" Color="#FF5A5F" />
+    <SolidColorBrush x:Key="BrushRecSoft" Color="#3A1B1F" />
+    <SolidColorBrush x:Key="BrushGood" Color="#3ED598" />
+    <SolidColorBrush x:Key="BrushWarn" Color="#EFB544" />
+    <SolidColorBrush x:Key="BrushMeterLow" Color="#3ED598" />
+    <SolidColorBrush x:Key="BrushMeterMid" Color="#EFB544" />
+    <SolidColorBrush x:Key="BrushMeterHigh" Color="#FF5A5F" />
+    <SolidColorBrush x:Key="BrushMarkerBg" Color="#2C2513" />
+    <SolidColorBrush x:Key="BrushMarkerEdge" Color="#C9A23C" />
+    <SolidColorBrush x:Key="BrushActionBg" Color="#10262C" />
+    <SolidColorBrush x:Key="BrushActionEdge" Color="#39C0D6" />
+    <SolidColorBrush x:Key="BrushManualEdge" Color="#7C8DF0" />
+
+    <conv:BoolToOpacityConverter x:Key="LitOpacity" TrueOpacity="1" FalseOpacity="0.13" />
+    <conv:BoolToOpacityConverter x:Key="HoverOpacity" TrueOpacity="1" FalseOpacity="0.35" />
+    <conv:FractionToWidthConverter x:Key="FractionToWidth" />
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{StaticResource BrushWindow}" />
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BrushText}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.section">
+      <Setter Property="Foreground" Value="{StaticResource BrushFaint}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="1.1" />
+    </Style>
+
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource BrushMuted}" />
+    </Style>
+
+    <Style Selector="TextBlock.faint">
+      <Setter Property="Foreground" Value="{StaticResource BrushFaint}" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    </Style>
+
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Kind / device badges -->
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource BrushSurface}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushLine}" />
+    </Style>
+
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="0.8" />
+      <Setter Property="Foreground" Value="{StaticResource BrushMuted}" />
+    </Style>
+
+    <Style Selector="Border.badge.loopback">
+      <Setter Property="Background" Value="{StaticResource BrushAccentSoft}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}" />
+    </Style>
+
+    <Style Selector="Border.badge.loopback > TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BrushAccent}" />
+    </Style>
+
+    <Style Selector="Border.badge.marker">
+      <Setter Property="Background" Value="{StaticResource BrushMarkerBg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushMarkerEdge}" />
+    </Style>
+
+    <Style Selector="Border.badge.marker > TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BrushMarkerEdge}" />
+    </Style>
+
+    <Style Selector="Border.badge.action">
+      <Setter Property="Background" Value="{StaticResource BrushActionBg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushActionEdge}" />
+    </Style>
+
+    <Style Selector="Border.badge.action > TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BrushActionEdge}" />
+    </Style>
+
+    <!-- Buttons -->
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushLine}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Foreground" Value="{StaticResource BrushMuted}" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BrushSurface}" />
+      <Setter Property="TextElement.Foreground" Value="{StaticResource BrushText}" />
+    </Style>
+
+    <Style Selector="Button.record">
+      <Setter Property="Background" Value="{StaticResource BrushAccent}" />
+      <Setter Property="Foreground" Value="#0B1220" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Padding" Value="20,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.record:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#7DB0FF" />
+    </Style>
+
+    <Style Selector="Button.record.rolling">
+      <Setter Property="Background" Value="{StaticResource BrushRec}" />
+      <Setter Property="Foreground" Value="#1A0B0C" />
+    </Style>
+
+    <Style Selector="Button.record.rolling:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#FF8286" />
+    </Style>
+
+    <!-- Recording indicator -->
+    <Style Selector="Ellipse.pulse">
+      <Style.Animations>
+        <Animation Duration="0:0:1.3" IterationCount="INFINITE">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="1" />
+          </KeyFrame>
+          <KeyFrame Cue="50%">
+            <Setter Property="Opacity" Value="0.2" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="1" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+
+    <!-- Meter LEDs -->
+    <Style Selector="Border.led">
+      <Setter Property="Width" Value="7" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="CornerRadius" Value="1.5" />
+      <Setter Property="Background" Value="{StaticResource BrushMeterLow}" />
+    </Style>
+
+    <Style Selector="Border.led.mid">
+      <Setter Property="Background" Value="{StaticResource BrushMeterMid}" />
+    </Style>
+
+    <Style Selector="Border.led.high">
+      <Setter Property="Background" Value="{StaticResource BrushMeterHigh}" />
+    </Style>
+
+    <!-- Inputs -->
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{StaticResource BrushSurface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushLine}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="8,5" />
+    </Style>
+
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="{StaticResource BrushSurface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushLine}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+
+    <!-- Note rows -->
+    <Style Selector="Border.row">
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Border.row:pointerover">
+      <Setter Property="Background" Value="#161A22" />
+    </Style>
+
+    <Style Selector="Border.row.manual">
+      <Setter Property="BorderBrush" Value="{StaticResource BrushManualEdge}" />
+    </Style>
+
+    <Style Selector="Border.row.marker">
+      <Setter Property="Background" Value="{StaticResource BrushMarkerBg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushMarkerEdge}" />
+    </Style>
+
+    <Style Selector="Border.row.action">
+      <Setter Property="Background" Value="{StaticResource BrushActionBg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BrushActionEdge}" />
+    </Style>
+
+    <Style Selector="Border.row Button.rowaction">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <Style Selector="Border.row:pointerover Button.rowaction">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- Tree -->
+    <Style Selector="TreeViewItem">
+      <Setter Property="Padding" Value="2" />
+    </Style>
+  </Application.Styles>
+</Application>

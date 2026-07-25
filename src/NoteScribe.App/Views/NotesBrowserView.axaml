@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NoteScribe.App.ViewModels"
+             xmlns:dd="using:NoteScribe.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="NoteScribe.App.Views.NotesBrowserView"
+             x:DataType="vm:NotesBrowserViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Browser}">
+
+  <Border Background="{StaticResource BrushSidebar}"
+          BorderBrush="{StaticResource BrushLine}"
+          BorderThickness="0,0,1,0">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="12,12,10,8" ColumnSpacing="6">
+        <TextBlock Grid.Column="0" Classes="section" Text="NOTES" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="ghost" Padding="7,2" Content="Folder"
+                Command="{Binding OpenRootFolderCommand}"
+                ToolTip.Tip="Reveal the notes root in Explorer" />
+        <Button Grid.Column="2" Classes="ghost" Padding="7,2" Content="Reload"
+                Command="{Binding RefreshCommand}" />
+      </Grid>
+
+      <TextBox Grid.Row="1"
+               Margin="12,0,10,8"
+               PlaceholderText="Search titles and text…"
+               Text="{Binding SearchText}" />
+
+      <TreeView Grid.Row="2"
+                Margin="4,0,10,0"
+                Background="Transparent"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ItemsSource="{Binding Nodes}"
+                SelectedItem="{Binding SelectedNode}">
+        <TreeView.Styles>
+          <Style Selector="TreeViewItem" x:DataType="vm:NotesTreeNodeViewModel">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName}" />
+          </Style>
+        </TreeView.Styles>
+        <TreeView.DataTemplates>
+
+          <TreeDataTemplate DataType="vm:ProjectNodeViewModel" x:DataType="vm:ProjectNodeViewModel"
+                            ItemsSource="{Binding Children}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,3"
+                  AutomationProperties.Name="{Binding Name}">
+              <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1" Classes="faint" Text="{Binding CountText}" VerticalAlignment="Center" />
+            </Grid>
+          </TreeDataTemplate>
+
+          <TreeDataTemplate DataType="vm:DateNodeViewModel" x:DataType="vm:DateNodeViewModel"
+                            ItemsSource="{Binding Children}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,2"
+                  AutomationProperties.Name="{Binding Label}">
+              <TextBlock Grid.Column="0" Classes="muted" Text="{Binding Label}" FontSize="12" />
+              <TextBlock Grid.Column="1" Classes="faint" Text="{Binding CountText}" VerticalAlignment="Center" />
+            </Grid>
+          </TreeDataTemplate>
+
+          <DataTemplate DataType="vm:SessionNodeViewModel" x:DataType="vm:SessionNodeViewModel">
+            <Border Classes="row" Padding="2,4" BorderThickness="0"
+                    AutomationProperties.Name="{Binding Title}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                <StackPanel Grid.Column="0" Spacing="1">
+                  <TextBlock Text="{Binding Title}" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="mono faint" Text="{Binding TimeText}" />
+                    <TextBlock Classes="faint" Text="{Binding DurationText}" />
+                    <TextBlock Classes="faint" Text="{Binding EntryCountText}" />
+                    <Border Classes="badge" IsVisible="{Binding IsFromVideo}">
+                      <TextBlock Text="VIDEO" />
+                    </Border>
+                  </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Classes="ghost rowaction"
+                        Padding="6,1"
+                        FontSize="11"
+                        VerticalAlignment="Center"
+                        Content="Open"
+                        Command="{Binding OpenFolderCommand}"
+                        ToolTip.Tip="Reveal this session's folder in Explorer" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+
+        </TreeView.DataTemplates>
+      </TreeView>
+
+      <Border Grid.Row="3" BorderBrush="{StaticResource BrushLineSoft}" BorderThickness="0,1,0,0" Padding="12,7">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="faint" Text="{Binding SummaryText}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Classes="faint" Text="loading…" IsVisible="{Binding IsBusy}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

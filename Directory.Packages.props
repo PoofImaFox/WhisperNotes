@@ -1,0 +1,34 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup Label="Speech to text">
+    <!-- whisper.cpp bindings. The Runtime package is build-time only and drops native
+         DLLs into runtimes/win-*; no RuntimeIdentifier is required. -->
+    <PackageVersion Include="Whisper.net" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Audio capture">
+    <!-- Referencing the split packages rather than the NAudio meta-package, which would
+         otherwise drag NAudio.WinForms into a -windows TFM. -->
+    <PackageVersion Include="NAudio.Core" Version="2.3.0" />
+    <PackageVersion Include="NAudio.Wasapi" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="UI">
+    <PackageVersion Include="Avalonia" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+    <!-- Deliberately NOT Avalonia.ReactiveUI: it has no 12.x release (highest is 11.3.8). -->
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="CLI">
+    <PackageVersion Include="System.CommandLine" Version="2.0.10" />
+  </ItemGroup>
+
+</Project>

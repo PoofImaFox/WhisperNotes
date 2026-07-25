@@ -1,0 +1,177 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NoteScribe.App.ViewModels"
+             xmlns:dd="using:NoteScribe.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="NoteScribe.App.Views.LiveNotesView"
+             x:DataType="vm:SessionDocumentViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Document}">
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+    <!-- Header -->
+    <Border Grid.Row="0" Padding="16,10" BorderBrush="{StaticResource BrushLineSoft}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Spacing="2">
+          <TextBlock Classes="title" Text="{Binding Title}" />
+          <TextBlock Classes="faint" Text="{Binding Subtitle}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Border Classes="badge" IsVisible="{Binding IsLive}">
+            <TextBlock Text="LIVE" Foreground="{StaticResource BrushRec}" />
+          </Border>
+          <TextBlock Classes="faint" Text="{Binding EntryCountText}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Entries -->
+    <Grid Grid.Row="1">
+      <ScrollViewer x:Name="NotesScroll"
+                    Padding="6,6,6,10"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Entries}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:NoteEntryViewModel" x:DataType="vm:NoteEntryViewModel">
+              <Border Classes="row"
+                      Classes.manual="{Binding IsManual}"
+                      Classes.marker="{Binding IsMarker}"
+                      Classes.action="{Binding IsActionItem}"
+                      Margin="0,1">
+                <Grid ColumnDefinitions="66,Auto,*,Auto" ColumnSpacing="10">
+
+                  <TextBlock Grid.Column="0"
+                             Classes="mono faint"
+                             VerticalAlignment="Top"
+                             Margin="0,2,0,0"
+                             Text="{Binding OffsetText}"
+                             ToolTip.Tip="{Binding TimeOfDayText}" />
+
+                  <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="0,1,0,0">
+                    <Border Classes="badge"
+                            Classes.marker="{Binding IsMarker}"
+                            Classes.action="{Binding IsActionItem}"
+                            IsVisible="{Binding HasKindLabel}">
+                      <TextBlock Text="{Binding KindLabel}" />
+                    </Border>
+                  </StackPanel>
+
+                  <Grid Grid.Column="2">
+                    <StackPanel Spacing="2" IsVisible="{Binding IsNotEditing}">
+                      <TextBlock Text="{Binding Text}"
+                                 TextWrapping="Wrap"
+                                 TextTrimming="None"
+                                 DoubleTapped="OnEntryTextDoubleTapped" />
+                      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLowConfidence}">
+                        <TextBlock Classes="faint"
+                                   Foreground="{StaticResource BrushWarn}"
+                                   Text="low confidence — check this line" />
+                        <TextBlock Classes="faint" Text="{Binding ConfidenceText}" />
+                      </StackPanel>
+                    </StackPanel>
+
+                    <TextBox Text="{Binding Draft}"
+                             IsVisible="{Binding IsEditing}"
+                             AcceptsReturn="False"
+                             TextWrapping="Wrap"
+                             LostFocus="OnEntryEditorLostFocus">
+                      <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}" />
+                        <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}" />
+                      </TextBox.KeyBindings>
+                    </TextBox>
+                  </Grid>
+
+                  <Button Grid.Column="3"
+                          Classes="ghost rowaction"
+                          Padding="7,1"
+                          FontSize="11"
+                          VerticalAlignment="Top"
+                          Content="Edit"
+                          IsVisible="{Binding IsNotEditing}"
+                          Command="{Binding BeginEditCommand}"
+                          ToolTip.Tip="Correct a misheard name — saved back to the transcript" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <TextBlock HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Classes="faint"
+                 MaxWidth="420"
+                 TextAlignment="Center"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding IsEmpty}"
+                 Text="Nothing here yet. Pick the endpoint Teams plays through, confirm the level meter moves, then press Start." />
+
+      <Button HorizontalAlignment="Center"
+              VerticalAlignment="Bottom"
+              Margin="0,0,0,12"
+              Classes="ghost"
+              Background="{StaticResource BrushSurface}"
+              Content="Jump to live ↓"
+              IsVisible="{Binding ShowJumpToLive}"
+              Command="{Binding JumpToLiveCommand}" />
+    </Grid>
+
+    <!-- Interim: pipeline state, visually distinct from anything committed -->
+    <Border Grid.Row="2"
+            Padding="16,6"
+            Background="#141821"
+            BorderBrush="{StaticResource BrushLineSoft}"
+            BorderThickness="0,1,0,0"
+            IsVisible="{Binding HasInterim}">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Classes="mono faint" Text="··:··:··" VerticalAlignment="Center" />
+        <TextBlock Classes="faint"
+                   FontStyle="Italic"
+                   VerticalAlignment="Center"
+                   Text="{Binding InterimText}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Composer -->
+    <Border Grid.Row="3"
+            Padding="16,10"
+            Background="{StaticResource BrushPanel}"
+            BorderBrush="{StaticResource BrushLine}"
+            BorderThickness="0,1,0,0">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+        <TextBox Grid.Row="0"
+                 x:Name="Composer"
+                 PlaceholderText="Type a note — Ctrl+Enter to add"
+                 Text="{Binding ComposerText}"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 MaxHeight="96"
+                 IsEnabled="{Binding CanCompose}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Ctrl+Enter" Command="{Binding AddNoteCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+          <TextBlock Grid.Column="0"
+                     Classes="faint"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding !CanCompose}"
+                     Text="Read-only — start a session to add notes." />
+          <Button Grid.Column="1" Classes="ghost" Content="Add note" Command="{Binding AddNoteCommand}" />
+          <Button Grid.Column="2" Classes="ghost" Content="Add action item" Command="{Binding AddActionItemCommand}" />
+          <Button Grid.Column="3" Classes="ghost" Content="Drop marker" Command="{Binding DropMarkerCommand}" />
+        </Grid>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>
