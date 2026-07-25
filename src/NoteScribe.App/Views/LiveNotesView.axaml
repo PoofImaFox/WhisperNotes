@@ -9,132 +9,199 @@
              x:DataType="vm:SessionDocumentViewModel"
              d:DataContext="{x:Static dd:DesignTime.Document}">
 
+  <UserControl.Resources>
+    <!--
+      The transcript is a log, not a picker. The ListBox is only here because its templated
+      ScrollViewer is what makes the VirtualizingStackPanel virtualise correctly and report a
+      true extent; this theme strips the container down to a bare presenter, and Classes="plain"
+      on the ListBox itself switches off the app-level selection chrome (Styles outrank
+      ControlThemes, so the theme alone cannot opt out of it).
+    -->
+    <ControlTheme x:Key="LogRowTheme" TargetType="ListBoxItem">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Top" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ListBoxItem">
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Background="Transparent"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </UserControl.Resources>
+
   <Grid RowDefinitions="Auto,*,Auto,Auto">
 
     <!-- Header -->
-    <Border Grid.Row="0" Padding="16,10" BorderBrush="{StaticResource BrushLineSoft}" BorderThickness="0,0,0,1">
+    <Border Grid.Row="0"
+            Padding="{DynamicResource PadPane}"
+            BorderBrush="{DynamicResource BorderSubtle}"
+            BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Grid.Column="0" Spacing="2">
-          <TextBlock Classes="title" Text="{Binding Title}" />
-          <TextBlock Classes="faint" Text="{Binding Subtitle}" />
+        <StackPanel Grid.Column="0" Spacing="{DynamicResource Space1}">
+          <TextBlock Classes="h2" Text="{Binding Title}" />
+          <TextBlock Classes="caption" Text="{Binding Subtitle}" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="{DynamicResource Space4}"
+                    VerticalAlignment="Center">
           <Border Classes="badge" IsVisible="{Binding IsLive}">
-            <TextBlock Text="LIVE" Foreground="{StaticResource BrushRec}" />
+            <TextBlock Text="LIVE" Foreground="{DynamicResource DangerBase}" />
           </Border>
-          <TextBlock Classes="faint" Text="{Binding EntryCountText}" VerticalAlignment="Center" />
+          <TextBlock Classes="caption" Text="{Binding EntryCountText}" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>
     </Border>
 
     <!-- Entries -->
     <Grid Grid.Row="1">
-      <ScrollViewer x:Name="NotesScroll"
-                    Padding="6,6,6,10"
-                    HorizontalScrollBarVisibility="Disabled"
-                    VerticalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Entries}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <VirtualizingStackPanel />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="vm:NoteEntryViewModel" x:DataType="vm:NoteEntryViewModel">
-              <Border Classes="row"
-                      Classes.manual="{Binding IsManual}"
-                      Classes.marker="{Binding IsMarker}"
-                      Classes.action="{Binding IsActionItem}"
-                      Margin="0,1">
-                <Grid ColumnDefinitions="66,Auto,*,Auto" ColumnSpacing="10">
+      <Grid.Styles>
+        <!-- The floating pill wants a rounder corner than a stock ghost button. The app-level
+             ghost style pins the radius on the presenter, so it has to be beaten there. -->
+        <Style Selector="Button.jumplive /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}" />
+        </Style>
+      </Grid.Styles>
 
-                  <TextBlock Grid.Column="0"
-                             Classes="mono faint"
-                             VerticalAlignment="Top"
-                             Margin="0,2,0,0"
-                             Text="{Binding OffsetText}"
-                             ToolTip.Tip="{Binding TimeOfDayText}" />
+      <!--
+        Padding is applied to the items presenter inside the scroll viewer, so the generous
+        bottom inset is scrollable content: the last entry can always clear the floating
+        "jump to live" pill instead of hiding behind it.
+      -->
+      <ListBox x:Name="NotesLog"
+               Classes="plain"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="6,6,6,40"
+               Focusable="True"
+               ItemContainerTheme="{StaticResource LogRowTheme}"
+               ItemsSource="{Binding Entries}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="vm:NoteEntryViewModel" x:DataType="vm:NoteEntryViewModel">
+            <Border Classes="row"
+                    Classes.manual="{Binding IsManual}"
+                    Classes.marker="{Binding IsMarker}"
+                    Classes.action="{Binding IsActionItem}"
+                    Margin="0,1">
+              <Grid ColumnDefinitions="66,Auto,*,Auto" ColumnSpacing="{DynamicResource Space4}">
 
-                  <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="0,1,0,0">
-                    <Border Classes="badge"
-                            Classes.marker="{Binding IsMarker}"
-                            Classes.action="{Binding IsActionItem}"
-                            IsVisible="{Binding HasKindLabel}">
-                      <TextBlock Text="{Binding KindLabel}" />
-                    </Border>
+                <TextBlock Grid.Column="0"
+                           Classes="mono caption"
+                           VerticalAlignment="Top"
+                           Margin="0,2,0,0"
+                           Text="{Binding OffsetText}"
+                           ToolTip.Tip="{Binding TimeOfDayText}" />
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="0,1,0,0">
+                  <Border Classes="badge"
+                          Classes.marker="{Binding IsMarker}"
+                          Classes.action="{Binding IsActionItem}"
+                          IsVisible="{Binding HasKindLabel}">
+                    <TextBlock Text="{Binding KindLabel}" />
+                  </Border>
+                </StackPanel>
+
+                <Grid Grid.Column="2">
+                  <StackPanel Spacing="{DynamicResource Space1}" IsVisible="{Binding IsNotEditing}">
+                    <TextBlock Text="{Binding Text}"
+                               TextWrapping="Wrap"
+                               TextTrimming="None"
+                               DoubleTapped="OnEntryTextDoubleTapped" />
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Space3}" IsVisible="{Binding IsLowConfidence}">
+                      <TextBlock Classes="caption"
+                                 Foreground="{DynamicResource WarningBase}"
+                                 Text="low confidence — check this line" />
+                      <TextBlock Classes="caption" Text="{Binding ConfidenceText}" />
+                    </StackPanel>
                   </StackPanel>
 
-                  <Grid Grid.Column="2">
-                    <StackPanel Spacing="2" IsVisible="{Binding IsNotEditing}">
-                      <TextBlock Text="{Binding Text}"
-                                 TextWrapping="Wrap"
-                                 TextTrimming="None"
-                                 DoubleTapped="OnEntryTextDoubleTapped" />
-                      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLowConfidence}">
-                        <TextBlock Classes="faint"
-                                   Foreground="{StaticResource BrushWarn}"
-                                   Text="low confidence — check this line" />
-                        <TextBlock Classes="faint" Text="{Binding ConfidenceText}" />
-                      </StackPanel>
-                    </StackPanel>
-
-                    <TextBox Text="{Binding Draft}"
-                             IsVisible="{Binding IsEditing}"
-                             AcceptsReturn="False"
-                             TextWrapping="Wrap"
-                             LostFocus="OnEntryEditorLostFocus">
-                      <TextBox.KeyBindings>
-                        <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}" />
-                        <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}" />
-                      </TextBox.KeyBindings>
-                    </TextBox>
-                  </Grid>
-
-                  <Button Grid.Column="3"
-                          Classes="ghost rowaction"
-                          Padding="7,1"
-                          FontSize="11"
-                          VerticalAlignment="Top"
-                          Content="Edit"
-                          IsVisible="{Binding IsNotEditing}"
-                          Command="{Binding BeginEditCommand}"
-                          ToolTip.Tip="Correct a misheard name — saved back to the transcript" />
+                  <TextBox Text="{Binding Draft}"
+                           IsVisible="{Binding IsEditing}"
+                           AcceptsReturn="False"
+                           TextWrapping="Wrap"
+                           LostFocus="OnEntryEditorLostFocus">
+                    <TextBox.KeyBindings>
+                      <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}" />
+                      <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}" />
+                    </TextBox.KeyBindings>
+                  </TextBox>
                 </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+
+                <Button Grid.Column="3"
+                        Classes="ghost rowaction"
+                        Padding="{DynamicResource PadTight}"
+                        FontSize="{DynamicResource FontSizeXs}"
+                        VerticalAlignment="Top"
+                        Content="Edit"
+                        IsVisible="{Binding IsNotEditing}"
+                        Command="{Binding BeginEditCommand}"
+                        ToolTip.Tip="Correct a misheard name — saved back to the transcript" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
 
       <TextBlock HorizontalAlignment="Center"
                  VerticalAlignment="Center"
-                 Classes="faint"
+                 Classes="caption"
                  MaxWidth="420"
                  TextAlignment="Center"
                  TextWrapping="Wrap"
+                 IsHitTestVisible="False"
                  IsVisible="{Binding IsEmpty}"
                  Text="Nothing here yet. Pick the endpoint Teams plays through, confirm the level meter moves, then press Start." />
 
+      <!-- Floats over the log, so it is given an opaque surface and an outline of its own. -->
       <Button HorizontalAlignment="Center"
               VerticalAlignment="Bottom"
-              Margin="0,0,0,12"
-              Classes="ghost"
-              Background="{StaticResource BrushSurface}"
+              Margin="0,0,0,10"
+              Classes="ghost jumplive"
+              Background="{DynamicResource SurfaceOverlay}"
+              BorderBrush="{DynamicResource BorderDefault}"
+              BorderThickness="1"
+              CornerRadius="{DynamicResource RadiusLg}"
+              Padding="{DynamicResource PadControl}"
               Content="Jump to live ↓"
               IsVisible="{Binding ShowJumpToLive}"
               Command="{Binding JumpToLiveCommand}" />
     </Grid>
 
-    <!-- Interim: pipeline state, visually distinct from anything committed -->
+    <!--
+      Interim: pipeline state, visually distinct from anything committed. The height is
+      reserved whether or not there is interim text — a row that collapsed and re-expanded
+      on the 300 ms tick resized the log viewport underneath a pinned scroll position.
+    -->
     <Border Grid.Row="2"
-            Padding="16,6"
-            Background="#141821"
-            BorderBrush="{StaticResource BrushLineSoft}"
-            BorderThickness="0,1,0,0"
-            IsVisible="{Binding HasInterim}">
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Classes="mono faint" Text="··:··:··" VerticalAlignment="Center" />
-        <TextBlock Classes="faint"
+            Height="30"
+            Padding="{DynamicResource PadControl}"
+            Background="{DynamicResource SurfaceBase}"
+            BorderBrush="{DynamicResource BorderSubtle}"
+            BorderThickness="0,1,0,0">
+      <StackPanel Orientation="Horizontal"
+                  Spacing="{DynamicResource Space3}"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasInterim}">
+        <TextBlock Classes="mono caption" Text="··:··:··" VerticalAlignment="Center" />
+        <TextBlock Classes="caption"
                    FontStyle="Italic"
                    VerticalAlignment="Center"
                    Text="{Binding InterimText}" />
@@ -143,11 +210,11 @@
 
     <!-- Composer -->
     <Border Grid.Row="3"
-            Padding="16,10"
-            Background="{StaticResource BrushPanel}"
-            BorderBrush="{StaticResource BrushLine}"
+            Padding="{DynamicResource PadPane}"
+            Background="{DynamicResource SurfaceBase}"
+            BorderBrush="{DynamicResource BorderDefault}"
             BorderThickness="0,1,0,0">
-      <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource Space3}">
         <TextBox Grid.Row="0"
                  x:Name="Composer"
                  PlaceholderText="Type a note — Ctrl+Enter to add"
@@ -161,9 +228,9 @@
           </TextBox.KeyBindings>
         </TextBox>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource Space3}">
           <TextBlock Grid.Column="0"
-                     Classes="faint"
+                     Classes="caption"
                      VerticalAlignment="Center"
                      IsVisible="{Binding !CanCompose}"
                      Text="Read-only — start a session to add notes." />

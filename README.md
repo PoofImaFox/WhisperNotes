@@ -7,8 +7,16 @@ run — and you still need a declarative record of what was agreed. Point it at 
 Teams is playing through and it transcribes the call as it happens, into an organised notes tree
 you own. It also ingests recorded video after the fact, via ffmpeg.
 
-**Everything runs locally.** No audio, transcript, or metadata leaves the machine. There is no
-account, no API key, and no network call except the one-time model download.
+**Capture and transcription run entirely locally.** No audio, transcript, or metadata leaves the
+machine. There is no account and no API key, and the only network call is the one-time model
+download.
+
+The one exception is the optional AI note assistant, and it is off the network by default: it
+ships pointed at [Ollama](https://ollama.com) on `localhost`, so the offline guarantee above
+still holds out of the box. Switching the provider to Anthropic in Settings is what sends note
+text to a third party — that is opt-in, requires a key you supply, and is the only way anything
+leaves the machine. Nothing is sent implicitly, and the audio itself is never sent under either
+provider.
 
 ## Quick start
 
@@ -36,12 +44,42 @@ Full command reference: [`docs/CLI.md`](docs/CLI.md). Design notes: [`docs/ARCHI
 
 ## The UI
 
+Two pages, on a nav rail down the left: **Meeting** (`Ctrl+1`) and **Notes** (`Ctrl+2`). The
+capture toolbar and the status bar sit outside the page switch, so a recording in progress stays
+visible and stoppable from either one.
+
+### Meeting
+
 Pick a channel, confirm the level meter is moving, press Start. Dictation streams into the
 centre pane with timestamps; you can type notes, flag action items, and drop markers alongside
 it. Past sessions are browsable on the left, grouped by project and date.
 
 Transcript lines are editable in place — Whisper reliably mangles proper nouns, and these notes
 are your record, so fixing "Dan Whitfield" once beats finding it wrong three weeks later.
+
+### Notes
+
+A markdown editor for writing the thing you actually send: the plan, the brief, the decision log.
+It's AvaloniaEdit with VS Code's TextMate grammars, so it highlights markdown the way your editor
+does, with a live preview pane beside it.
+
+Down the right is the assistant. Quick actions run against the note — meeting summary, action
+items, decision log, implementation plan, step list, risk register, stakeholder update, executive
+brief, follow-up email, requirements extraction, transcript cleanup — plus a free-text
+instruction box for anything not on the list. **"New note from meeting…"** seeds a note from a
+finished session's transcript, which is the usual starting point.
+
+Two things about the assistant are deliberate:
+
+- **It never edits your note directly.** Output streams into a preview and you choose Apply,
+  Insert below, Copy, or Discard. Nothing changes until you say so.
+- **Every change is versioned.** The History tab lists each revision with a `+N −M` stat and a
+  unified diff, marks AI-authored ones distinctly, and restores any of them in one click —
+  including undoing a restore. Whatever the assistant does to a note, you can get the previous
+  text back verbatim.
+
+The provider is configurable (gear icon): Ollama on localhost by default, Anthropic if you supply
+a key. See the note on what leaves the machine at the top of this file.
 
 ## Choosing the right channel
 

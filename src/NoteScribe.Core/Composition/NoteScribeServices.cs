@@ -1,7 +1,9 @@
+using NoteScribe.Core.Ai;
 using NoteScribe.Core.Audio;
 using NoteScribe.Core.Configuration;
 using NoteScribe.Core.Media;
 using NoteScribe.Core.Notes;
+using NoteScribe.Core.Notes.Documents;
 using NoteScribe.Core.Transcription;
 
 namespace NoteScribe.Core.Composition;
@@ -22,6 +24,7 @@ public sealed class NoteScribeServices : IAsyncDisposable
     private bool _disposed;
 
     private readonly Lazy<INoteRepository> _notes;
+    private readonly Lazy<INoteDocumentStore> _documents;
 
     private NoteScribeServices(
         AppSettings settings,
@@ -34,7 +37,9 @@ public sealed class NoteScribeServices : IAsyncDisposable
         IMediaConverter media,
         IWavReader wavReader,
         Lazy<INoteRepository> notes,
-        INoteExporter exporter)
+        Lazy<INoteDocumentStore> documents,
+        INoteExporter exporter,
+        IAiAssistantFactory aiAssistants)
     {
         Settings = settings;
         SettingsStore = settingsStore;
@@ -46,7 +51,9 @@ public sealed class NoteScribeServices : IAsyncDisposable
         Media = media;
         WavReader = wavReader;
         _notes = notes;
+        _documents = documents;
         Exporter = exporter;
+        AiAssistants = aiAssistants;
     }
 
     public AppSettings Settings { get; }
@@ -61,10 +68,23 @@ public sealed class NoteScribeServices : IAsyncDisposable
     public INoteExporter Exporter { get; }
 
     /// <summary>
+    /// Builds an assistant for the current <see cref="AiSettings"/>. Held rather than resolved
+    /// because the UI rebuilds the assistant on every settings change; the factory itself is free.
+    /// </summary>
+    public IAiAssistantFactory AiAssistants { get; }
+
+    /// <summary>
     /// Constructed on first touch. Building the repository creates the notes root on disk, and
     /// read-only commands like <c>devices</c> or <c>models path</c> have no business doing that.
     /// </summary>
     public INoteRepository Notes => _notes.Value;
+
+    /// <summary>
+    /// Standalone note documents and their revision history. Lazy for the same reason
+    /// <see cref="Notes"/> is: constructing the store creates <c>_documents/</c> on disk, which a
+    /// read-only CLI command must not do.
+    /// </summary>
+    public INoteDocumentStore Documents => _documents.Value;
 
     /// <summary>
     /// Builds the real service graph.
@@ -98,7 +118,9 @@ public sealed class NoteScribeServices : IAsyncDisposable
             new FfmpegMediaConverter(settings.FfmpegPath),
             new WaveFileReaderService(),
             new Lazy<INoteRepository>(() => new FileSystemNoteRepository(settings.NotesRoot, exporter)),
-            exporter);
+            new Lazy<INoteDocumentStore>(() => new FileSystemNoteDocumentStore(settings.NotesRoot)),
+            exporter,
+            new AiAssistantFactory());
     }
 
     public async ValueTask DisposeAsync()
@@ -116,6 +138,11 @@ public sealed class NoteScribeServices : IAsyncDisposable
         if (_notes.IsValueCreated)
         {
             await DisposeIfNeededAsync(_notes.Value).ConfigureAwait(false);
+        }
+
+        if (_documents.IsValueCreated)
+        {
+            await DisposeIfNeededAsync(_documents.Value).ConfigureAwait(false);
         }
     }
 

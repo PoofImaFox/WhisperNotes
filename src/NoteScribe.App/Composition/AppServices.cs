@@ -1,9 +1,11 @@
 using NoteScribe.App.DesignData;
+using NoteScribe.Core.Ai;
 using NoteScribe.Core.Audio;
 using NoteScribe.Core.Composition;
 using NoteScribe.Core.Configuration;
 using NoteScribe.Core.Media;
 using NoteScribe.Core.Notes;
+using NoteScribe.Core.Notes.Documents;
 using NoteScribe.Core.Transcription;
 
 namespace NoteScribe.App.Composition;
@@ -29,6 +31,12 @@ public sealed class AppServices
     public required ISettingsStore Settings { get; init; }
 
     public required IMediaConverter Media { get; init; }
+
+    /// <summary>Builds an assistant for the current AI settings. Rebuild after any settings change.</summary>
+    public required IAiAssistantFactory AiAssistants { get; init; }
+
+    /// <summary>Standalone note documents and their revision history.</summary>
+    public required INoteDocumentStore Documents { get; init; }
 
     /// <summary>True when the app is running on in-process sample data rather than real Core services.</summary>
     public bool IsSampleData { get; init; }
@@ -58,6 +66,8 @@ public sealed class AppServices
             Notes = new FakeNoteRepository(),
             Settings = settings,
             Media = new FakeMediaConverter(),
+            AiAssistants = new FakeAiAssistantFactory(),
+            Documents = new FakeNoteDocumentStore(),
             IsSampleData = true,
         };
     }
@@ -79,6 +89,8 @@ public sealed class AppServices
             Notes = core.Notes,
             Settings = core.SettingsStore,
             Media = core.Media,
+            AiAssistants = core.AiAssistants,
+            Documents = core.Documents,
             Core = core,
         };
     }
@@ -112,6 +124,8 @@ public sealed class AppServices
                 Notes = fallback.Notes,
                 Settings = fallback.Settings,
                 Media = fallback.Media,
+                AiAssistants = fallback.AiAssistants,
+                Documents = fallback.Documents,
                 IsSampleData = true,
                 SampleDataReason = ex.Message,
             };

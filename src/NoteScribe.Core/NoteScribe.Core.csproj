@@ -10,6 +10,7 @@
     <PackageReference Include="Whisper.net.Runtime" />
     <PackageReference Include="NAudio.Core" />
     <PackageReference Include="NAudio.Wasapi" />
+    <PackageReference Include="Anthropic" />
   </ItemGroup>
 
 </Project>

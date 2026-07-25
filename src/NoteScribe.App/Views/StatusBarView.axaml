@@ -9,44 +9,45 @@
              x:DataType="vm:MainWindowViewModel"
              d:DataContext="{x:Static dd:DesignTime.Main}">
 
-  <Border Background="{StaticResource BrushPanel}"
-          BorderBrush="{StaticResource BrushLine}"
+  <Border Background="{StaticResource SurfaceBase}"
+          BorderBrush="{StaticResource BorderSubtle}"
           BorderThickness="0,1,0,0"
-          Padding="14,5">
-    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="16">
+          Padding="{StaticResource PadTight}">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="{StaticResource Space4}">
 
-      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                 Fill="{StaticResource BrushGood}" IsVisible="{Binding Capture.ModelReady}" />
-        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                 Fill="{StaticResource BrushWarn}" IsVisible="{Binding !Capture.ModelReady}" />
-        <TextBlock Classes="faint" Text="{Binding Capture.ModelStatusText}" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource SuccessBase}" IsVisible="{Binding Capture.ModelReady}" />
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource WarningBase}" IsVisible="{Binding !Capture.ModelReady}" />
+        <TextBlock Classes="caption" Text="{Binding Capture.ModelStatusText}" VerticalAlignment="Center" />
       </StackPanel>
 
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                 Fill="{StaticResource BrushAccent}" IsVisible="{Binding Capture.HasChannel}" />
-        <TextBlock Classes="faint" MaxWidth="320"
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource AccentBase}" IsVisible="{Binding Capture.HasChannel}" />
+        <TextBlock Classes="caption" MaxWidth="320"
                    Text="{Binding Capture.ChannelDetailText}" VerticalAlignment="Center" />
       </StackPanel>
 
       <Button Grid.Column="2"
               Classes="ghost"
-              Padding="7,1"
-              FontSize="11"
+              Padding="{StaticResource PadTight}"
+              MinHeight="20"
+              VerticalAlignment="Center"
               Command="{Binding OpenNotesRootCommand}"
               ToolTip.Tip="Open the notes root in Explorer">
-        <TextBlock Classes="faint" Text="{Binding NotesRootPath}" MaxWidth="360" />
+        <TextBlock Text="{Binding NotesRootPath}" MaxWidth="360" />
       </Button>
 
       <TextBlock Grid.Column="3"
-                 Classes="faint"
+                 Classes="caption"
                  VerticalAlignment="Center"
                  HorizontalAlignment="Left"
                  Text="{Binding StatusMessage}" />
 
       <TextBlock Grid.Column="4"
-                 Classes="faint"
+                 Classes="caption"
                  VerticalAlignment="Center"
                  MaxWidth="300"
                  Text="{Binding FfmpegStatusText}" />

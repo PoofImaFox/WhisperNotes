@@ -4,7 +4,10 @@ Local speech-to-text note taking. Captures a chosen Windows audio endpoint (typi
 loopback of whatever device Teams is playing through), runs local Whisper over it, and writes
 timestamped notes into an organised directory tree. Also ingests video files via ffmpeg.
 
-Everything runs offline. No audio leaves the machine.
+Capture, transcription and storage run offline. Audio never leaves the machine under any
+configuration. The optional AI note assistant is the sole egress point and defaults to a local
+Ollama endpoint; the Anthropic provider is opt-in and sends note *text* only. See
+[The AI assistant](#the-ai-assistant) below.
 
 ## Projects
 
@@ -74,6 +77,49 @@ markdown is a derived view, regenerated on finalize and safely re-renderable at 
 `session.json` is rewritten (temp file + atomic move) whenever metadata changes, which is rare.
 `transcript.jsonl` is opened once per session and appended with a flush per entry.
 
+### Authored notes
+
+Notes written on the Notes page live beside the session tree, under a sibling `_documents/`
+directory so the recursive `session.json` scan can never pick them up:
+
+```
+<NotesRoot>/
+  _documents/
+    <slug>-<8-hex>/
+      document.json                                  # metadata only; the body is NOT duplicated here
+      content.md                                     # the live body
+      revisions/
+        20260725T1911013484493Z-ead0ac54.json        # NoteRevision; filename sort == chronological
+```
+
+Same reasoning as the transcript: `content.md` is the artefact you can read without the app, and
+the revision files are the crash-safe history. A revision is written **before** `content.md` is
+replaced, so the worst a crash can do is leave one redundant revision rather than lose text.
+
+## The AI assistant
+
+The only component that can talk to the network on purpose. `Ai/AiContracts.cs` defines
+`IAiAssistant`; two implementations sit behind it:
+
+| Provider | Transport | Default |
+|---|---|---|
+| `OllamaAiAssistant` | `HttpClient` → `POST /api/chat` (newline-delimited JSON stream) at `http://localhost:11434` | ✅ |
+| `AnthropicAiAssistant` | official `Anthropic` SDK, `claude-opus-5`, adaptive thinking, streaming | opt-in |
+
+Ollama is the default so the offline guarantee in the header holds without configuration.
+Selecting Anthropic requires a key the user supplies (`AiSettings.AnthropicApiKey`, falling back
+to `ANTHROPIC_API_KEY`) and is the only path by which note text leaves the machine. Audio is
+never sent under either provider.
+
+`AiActionCatalog.BuiltIn` holds the quick actions (meeting summary, decision log, implementation
+plan, risk register, transcript cleanup, …) as data, not code — an action is a prompt pair plus a
+`ReplacesTarget` flag, so adding one is a catalog entry, not a UI change.
+
+**AI output never mutates a note directly.** A run streams into a preview; the user accepts it,
+and only then does `INoteDocumentStore.SaveAsync` land it with origin `ai:<actionId>` — which
+pushes the pre-change body onto the revision stack. That is what makes "undo the AI" a guarantee
+rather than a hope.
+
 ## Contracts
 
 The interfaces in `Core` are the seams between components. They are already defined in:
@@ -82,7 +128,9 @@ The interfaces in `Core` are the seams between components. They are already defi
 - `Transcription/TranscriptionContracts.cs` — `ITranscriber`, `IWhisperModelStore`, `ILiveTranscriptionEngine`
 - `Media/MediaContracts.cs` — `IMediaConverter`, `IWavReader`
 - `Notes/NoteContracts.cs` — `INoteRepository`, `INoteExporter`
-- `Configuration/AppSettings.cs` — `AppSettings`, `ISettingsStore`
+- `Notes/Documents/NoteDocumentContracts.cs` — `INoteDocumentStore`, `NoteDocument`, `NoteRevision`
+- `Ai/AiContracts.cs` — `IAiAssistant`, `IAiAssistantFactory`, `AiRequest`, `AiException`
+- `Configuration/AppSettings.cs` — `AppSettings`, `AiSettings`, `ISettingsStore`
 
 Implementations must satisfy these as written. If an implementation genuinely needs a contract
 change, change it in one place and note it — do not add a parallel abstraction.

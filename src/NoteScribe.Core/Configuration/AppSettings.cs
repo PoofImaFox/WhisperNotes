@@ -1,3 +1,4 @@
+using NoteScribe.Core.Ai;
 using NoteScribe.Core.Transcription;
 
 namespace NoteScribe.Core.Configuration;
@@ -41,6 +42,9 @@ public sealed class AppSettings
     /// <summary>Live chunking tuning.</summary>
     public ChunkingSettings Chunking { get; set; } = new();
 
+    /// <summary>Assistant provider and model. Defaults to local Ollama so nothing leaves the machine.</summary>
+    public AiSettings Ai { get; set; } = new();
+
     public static string DefaultNotesRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "NoteScribe");
 
@@ -58,6 +62,36 @@ public sealed class AppSettings
         TimeSpan.FromSeconds(Chunking.MaxChunkSeconds),
         TimeSpan.FromMilliseconds(Chunking.SilenceMilliseconds),
         Chunking.SilenceThreshold);
+}
+
+/// <summary>
+/// Which model answers the assistant's quick actions, and how patient we are with it.
+/// </summary>
+/// <remarks>
+/// Ollama is the default so the offline promise in the README holds unless the user deliberately
+/// opts in to a hosted provider. There are no temperature/top-p/top-k knobs here on purpose: the
+/// Anthropic model family this targets rejects them outright.
+/// </remarks>
+public sealed class AiSettings
+{
+    public AiProviderKind Provider { get; set; } = AiProviderKind.Ollama;
+
+    public string OllamaEndpoint { get; set; } = "http://localhost:11434";
+
+    public string OllamaModel { get; set; } = "llama3.1";
+
+    public string AnthropicModel { get; set; } = "claude-opus-5";
+
+    /// <summary>Falls back to the ANTHROPIC_API_KEY environment variable when null/blank.</summary>
+    public string? AnthropicApiKey { get; set; }
+
+    /// <summary>
+    /// Hard cap on the answer. On thinking-by-default models this covers reasoning as well as the
+    /// visible text, so it is deliberately generous.
+    /// </summary>
+    public int MaxOutputTokens { get; set; } = 8000;
+
+    public int TimeoutSeconds { get; set; } = 300;
 }
 
 /// <summary>Plain-number mirror of <see cref="ChunkingOptions"/> so the JSON stays readable.</summary>

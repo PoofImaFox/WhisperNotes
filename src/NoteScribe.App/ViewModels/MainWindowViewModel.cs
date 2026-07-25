@@ -12,6 +12,16 @@ using NoteScribe.Core.Notes;
 
 namespace NoteScribe.App.ViewModels;
 
+/// <summary>The shell's top-level pages.</summary>
+public enum ShellPage
+{
+    /// <summary>Live capture: the browser tree plus the transcript log.</summary>
+    Meeting,
+
+    /// <summary>The standalone note workspace (editor, preview, AI actions, revisions).</summary>
+    Notes
+}
+
 /// <summary>Shell coordinator: owns the recording lifecycle and everything the three regions share.</summary>
 public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDisposable
 {
@@ -39,6 +49,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         Document = new SessionDocumentViewModel(services.Notes, Notify);
         Browser = new NotesBrowserViewModel(services.Notes, Notify);
+
+        // Built eagerly and kept for the life of the window: the Notes page holds an editor with
+        // an undo stack and unsaved edits, so it must never be rebuilt by a page switch.
+        Notes = new NotesWorkspaceViewModel(services, NotifyFromNotes);
+
         Browser.SessionActivated += OnSessionActivated;
         Capture.PropertyChanged += OnCapturePropertyChanged;
 
@@ -53,7 +68,40 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public NotesBrowserViewModel Browser { get; }
 
+    /// <summary>The Notes page. Constructed once; the page switch only toggles its visibility.</summary>
+    public NotesWorkspaceViewModel Notes { get; }
+
     public ObservableCollection<NotificationViewModel> Notifications { get; } = [];
+
+    /// <summary>
+    /// Which page the rail is showing.
+    /// <para>
+    /// Both pages are built once and stay in the visual tree; switching only flips
+    /// <c>IsVisible</c>. That is deliberate: the Meeting page owns a transcript
+    /// <c>ScrollViewer</c> whose offset is view state, and an audio meter driven by a 60 ms
+    /// timer. Rebuilding the page — which a <c>ContentControl</c> + <c>DataTemplate</c> would do
+    /// on every switch — would throw both away mid-recording.
+    /// </para>
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMeetingPage))]
+    [NotifyPropertyChangedFor(nameof(IsNotesPage))]
+    public partial ShellPage SelectedPage { get; set; }
+
+    public bool IsMeetingPage => SelectedPage == ShellPage.Meeting;
+
+    public bool IsNotesPage => SelectedPage == ShellPage.Notes;
+
+    /// <summary>
+    /// True when the app fell back to in-process fakes after a startup failure. Constant for the
+    /// lifetime of the process, so the chip it drives can sit in the layout without ever causing
+    /// a reflow.
+    /// </summary>
+    public bool IsSampleData => _services.IsSampleData;
+
+    public string SampleDataText => _services.SampleDataReason is { Length: > 0 } reason
+        ? $"Devices, transcription and notes are simulated — nothing here is a real recording. Core services failed to start: {reason}"
+        : "Devices, transcription and notes are simulated — nothing here is a real recording.";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordButtonText))]
@@ -109,22 +157,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         OnPropertyChanged(nameof(SettingsPath));
         OnPropertyChanged(nameof(FfmpegStatusText));
 
-        if (_services.IsSampleData)
-        {
-            Notifications.Add(new NotificationViewModel(
-                NotificationSeverity.Warning,
-                "Sample data",
-                "Core services are not wired yet, so devices, transcription and notes are simulated. Nothing here is a real recording.",
-                Dismiss,
-                canDismiss: false));
-            OnPropertyChanged(nameof(HasNotifications));
-        }
+        // The sample-data warning is deliberately NOT a notification any more. It can never be
+        // dismissed and never goes away, so as a floating toast it would hover over the content
+        // for the whole session and permanently occupy a slot in the four-deep banner stack.
+        // It is rendered instead as a docked one-line chip driven by IsSampleData.
 
         await Browser.RefreshAsync().ConfigureAwait(true);
         await Capture.StartMonitoringAsync().ConfigureAwait(true);
 
+        try
+        {
+            await Notes.InitializeAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // Contractually it never throws; the guard exists so a Notes-side regression can
+            // never stop the meeting side of the app from coming up.
+            Notify("Notes are unavailable", ex.Message, NotificationSeverity.Warning);
+        }
+
         StatusMessage = "Ready.";
     }
+
+    /// <summary>Rail / Ctrl+1 / Ctrl+2. Pure view state — nothing is torn down or rebuilt.</summary>
+    [RelayCommand]
+    private void GoToPage(ShellPage page) => SelectedPage = page;
 
     [RelayCommand(CanExecute = nameof(CanToggleRecording))]
     private async Task ToggleRecordingAsync()
@@ -470,11 +527,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         await SaveSettingsAsync().ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Writes only the fields this view model owns, re-reading the file first.
+    /// The AI settings panel writes the same file from its own view model; saving our whole
+    /// in-memory snapshot would silently roll its changes back, because <see cref="_settings"/>
+    /// was loaded at startup and never sees them.
+    /// </summary>
     private async Task SaveSettingsAsync()
     {
         try
         {
-            await _services.Settings.SaveAsync(_settings, CancellationToken.None).ConfigureAwait(true);
+            var onDisk = _services.Settings.Load();
+
+            onDisk.LastChannelId = _settings.LastChannelId;
+            onDisk.Model = _settings.Model;
+            onDisk.DefaultProject = _settings.DefaultProject;
+
+            await _services.Settings.SaveAsync(onDisk, CancellationToken.None).ConfigureAwait(true);
+
+            // Keep our snapshot consistent with what is now on disk, so the next read of
+            // _settings (e.g. ToTranscriptionOptions) reflects changes made elsewhere.
+            _settings = onDisk;
         }
         catch (Exception ex)
         {
@@ -483,6 +556,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     private void Notify(string title, string message, NotificationSeverity severity) =>
+        Notify(title, message, severity, null, null);
+
+    /// <summary>Adapter for the Notes page's <c>Action&lt;NotificationSeverity, string, string&gt;</c>.</summary>
+    private void NotifyFromNotes(NotificationSeverity severity, string title, string message) =>
         Notify(title, message, severity, null, null);
 
     private void Notify(
@@ -540,6 +617,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         await Capture.StopMonitoringAsync().ConfigureAwait(true);
+
+        // A half-typed note is as much the user's work as a meeting is; flush before settings so
+        // a slow settings write can never be what loses it.
+        try
+        {
+            if (!await Notes.TryFlushAsync().ConfigureAwait(true))
+            {
+                SelectedPage = ShellPage.Notes;
+                Notify(
+                    "A note could not be saved",
+                    "The Notes page still has an unresolved edit. It is shown now so you can deal with it.",
+                    NotificationSeverity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notify("Could not save the open note", ex.Message, NotificationSeverity.Warning);
+        }
+
         await SaveSettingsAsync().ConfigureAwait(true);
     }
 
@@ -551,6 +647,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _settingsDebounce?.Cancel();
         _settingsDebounce?.Dispose();
         _recordingCts?.Dispose();
+        await Notes.DisposeAsync().ConfigureAwait(false);
         await Capture.DisposeAsync().ConfigureAwait(false);
     }
 }

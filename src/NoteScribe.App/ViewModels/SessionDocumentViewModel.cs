@@ -27,6 +27,12 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
     /// <summary>Raised when the user explicitly asks to jump back to the live tail.</summary>
     public event EventHandler? ScrollToEndRequested;
 
+    /// <summary>
+    /// Raised when the log should be shown from the beginning — a finished meeting is read from
+    /// the top, and asking for the tail of a batch-loaded transcript only ever lands half way.
+    /// </summary>
+    public event EventHandler? ScrollToTopRequested;
+
     public ObservableCollection<NoteEntryViewModel> Entries { get; } = [];
 
     [ObservableProperty]
@@ -105,8 +111,11 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
         }
 
         RaiseCountsChanged();
+
+        // Not a tail to follow: IsLive is false, so ShowJumpToLive stays false and nothing will
+        // try to re-pin this document to the bottom.
         AutoScroll = false;
-        ScrollToEndRequested?.Invoke(this, EventArgs.Empty);
+        ScrollToTopRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Called on the UI thread once an entry is safely on disk.</summary>

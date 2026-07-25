@@ -91,6 +91,21 @@ public sealed class JsonSettingsStore : ISettingsStore
         settings.ModelsRoot = Blank(settings.ModelsRoot) ? AppSettings.DefaultModelsRoot : settings.ModelsRoot;
         settings.Language = Blank(settings.Language) ? "auto" : settings.Language;
         settings.Chunking ??= new ChunkingSettings();
+
+        // A settings file written before the AI layer existed has no "ai" node at all.
+        settings.Ai ??= new AiSettings();
+        settings.Ai.OllamaEndpoint = Blank(settings.Ai.OllamaEndpoint)
+            ? new AiSettings().OllamaEndpoint
+            : settings.Ai.OllamaEndpoint.Trim();
+        settings.Ai.OllamaModel = Blank(settings.Ai.OllamaModel)
+            ? new AiSettings().OllamaModel
+            : settings.Ai.OllamaModel.Trim();
+        settings.Ai.AnthropicModel = Blank(settings.Ai.AnthropicModel)
+            ? new AiSettings().AnthropicModel
+            : settings.Ai.AnthropicModel.Trim();
+        settings.Ai.MaxOutputTokens = settings.Ai.MaxOutputTokens > 0 ? settings.Ai.MaxOutputTokens : 8000;
+        settings.Ai.TimeoutSeconds = settings.Ai.TimeoutSeconds > 0 ? settings.Ai.TimeoutSeconds : 300;
+
         return settings;
 
         static bool Blank(string? value) => string.IsNullOrWhiteSpace(value);
