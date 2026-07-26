@@ -24,7 +24,11 @@ public sealed class AppSettings
     public string Language { get; set; } = "auto";
 
     /// <summary>Decoder threads. Null means Environment.ProcessorCount capped at 8.</summary>
+    /// <remarks>Barely matters once <see cref="Gpu"/> is on — the decode is not on the CPU then.</remarks>
     public int? Threads { get; set; }
+
+    /// <summary>GPU decode. On by default; see <see cref="GpuSettings"/>.</summary>
+    public GpuSettings Gpu { get; set; } = new();
 
     /// <summary>Persisted channel selection so the app reopens on the right endpoint.</summary>
     /// <remarks>
@@ -70,7 +74,7 @@ public sealed class AppSettings
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WhisperNotes", "settings.json");
 
     public TranscriptionOptions ToTranscriptionOptions() =>
-        new(Model, Language, Threads, Translate: false, InitialPrompt);
+        new(Model, Language, Threads, Translate: false, InitialPrompt, Gpu.Enabled, Gpu.Device);
 
     public ChunkingOptions ToChunkingOptions() => new(
         TimeSpan.FromSeconds(Chunking.MinChunkSeconds),
@@ -147,6 +151,28 @@ public sealed class AiSettings
     public int MaxOutputTokens { get; set; } = 8000;
 
     public int TimeoutSeconds { get; set; } = 300;
+}
+
+/// <summary>Where the decode runs.</summary>
+/// <remarks>
+/// There is no "which backend" setting here on purpose. Whisper.net picks the native runtime once
+/// per process from what the machine actually supports, and a stale preference in a settings file
+/// that outlives a driver or GPU change would only ever be wrong. Run <c>whispernotes doctor</c> to
+/// see what it chose.
+/// </remarks>
+public sealed class GpuSettings
+{
+    /// <summary>
+    /// Roughly a 40x difference on large-v3-turbo, so this is only worth clearing to work around a
+    /// driver that crashes or produces garbage.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Index into the adapter list <c>whispernotes doctor</c> prints. Zero is the driver's first,
+    /// which on a desktop with an active integrated GPU is not reliably the discrete card.
+    /// </summary>
+    public int Device { get; set; }
 }
 
 /// <summary>Plain-number mirror of <see cref="ChunkingOptions"/> so the JSON stays readable.</summary>

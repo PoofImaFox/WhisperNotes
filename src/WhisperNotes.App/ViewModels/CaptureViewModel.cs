@@ -85,9 +85,16 @@ public sealed partial class CaptureViewModel : ObservableObject, IAsyncDisposabl
 
     public bool HasChannel => SelectedChannel is not null;
 
-    public string ChannelDetailText => SelectedChannel is { } channel
-        ? $"{channel.KindLabel} · native {channel.FormatText} · resampled to 16 kHz mono"
-        : "No endpoint selected — pick the device Teams plays through.";
+    public string ChannelDetailText => SelectedChannel switch
+    {
+        // "native teams.exe" reads as nonsense, so applications get their own sentence — and one that
+        // admits when the OS is too old to actually scope the capture to that app.
+        { IsApplication: true } app => ProcessLoopbackSupport.IsSupported
+            ? $"{app.KindLabel} · {app.FormatText} · resampled to 16 kHz mono"
+            : $"{app.KindLabel} · {app.FormatText} · recording all system audio on this Windows build",
+        { } channel => $"{channel.KindLabel} · native {channel.FormatText} · resampled to 16 kHz mono",
+        _ => "No endpoint selected — pick the device Teams plays through."
+    };
 
     public string ModelStatusText => SelectedModel is { } model
         ? model.IsDownloaded ? $"{model.Name} · on disk" : $"{model.Name} · not downloaded ({model.SizeText})"
@@ -142,9 +149,11 @@ public sealed partial class CaptureViewModel : ObservableObject, IAsyncDisposabl
                 NotificationSeverity.Warning);
         }
 
+        // Applications are deliberately excluded from the implicit fallbacks: auto-selecting whichever
+        // app happened to be making noise at startup would silently scope the recording to it.
         SelectedChannel = restored ?? Channels.FirstOrDefault(c => c is { IsLoopback: true, IsDefault: true })
                                    ?? Channels.FirstOrDefault(c => c.IsLoopback)
-                                   ?? Channels.FirstOrDefault();
+                                   ?? Channels.FirstOrDefault(c => !c.IsApplication);
     }
 
     /// <summary>Restores the persisted endpoint, falling back to the default loopback when it is gone.</summary>

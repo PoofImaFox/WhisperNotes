@@ -102,6 +102,21 @@ internal static class CliExecutor
             settings.FfmpegPath = ffmpeg;
         }
 
+        if (parseResult.GetValue(CliOptions.NoGpu))
+        {
+            settings.Gpu.Enabled = false;
+        }
+
+        if (parseResult.GetValue(CliOptions.GpuDevice) is { } gpuDevice)
+        {
+            if (gpuDevice < 0)
+            {
+                throw new ArgumentException("--gpu-device is an index into the adapter list, so it cannot be negative.");
+            }
+
+            settings.Gpu.Device = gpuDevice;
+        }
+
         console.Diagnostic($"settings   {store.SettingsPath}");
         console.Diagnostic($"notes root {settings.NotesRoot}");
         console.Diagnostic($"models     {settings.ModelsRoot}");

@@ -79,11 +79,25 @@ public sealed partial class InputSettingsViewModel : ObservableObject
 
     public bool HasMissingEnabledSources => MissingEnabledSourceCount > 0;
 
+    /// <summary>True when an input targets a single application but this OS cannot capture one.</summary>
+    /// <remarks>
+    /// Deliberately not an error state. The capture factory falls back to device-level loopback, so
+    /// the recording still happens — it just also contains everything else playing on the machine.
+    /// That is a thing to learn before the meeting, not while reading the transcript afterwards, so
+    /// it is surfaced the moment such an input exists rather than at record time.
+    /// </remarks>
+    public bool HasProcessLoopbackWarning =>
+        !ProcessLoopbackSupport.IsSupported && Sources.Any(source => source.IsApplication);
+
+    /// <summary>The OS's own reason, so the copy cannot drift from the check that produced it.</summary>
+    public string ProcessLoopbackWarningText => ProcessLoopbackSupport.UnsupportedReason ?? string.Empty;
+
     public string SummaryText => EnabledSourceCount switch
     {
         0 => "No inputs enabled",
         1 when MissingEnabledSourceCount == 0 => "1 input enabled",
-        1 => "1 input enabled · device unavailable",
+        // "input", not "device": the one that is missing may be an application that has since quit.
+        1 => "1 input enabled · unavailable",
         _ when MissingEnabledSourceCount == 0 => $"{EnabledSourceCount} inputs enabled for parallel transcription",
         _ => $"{EnabledSourceCount} inputs enabled · {MissingEnabledSourceCount} unavailable",
     };
@@ -147,13 +161,13 @@ public sealed partial class InputSettingsViewModel : ObservableObject
     [RelayCommand]
     private void AddSource()
     {
-        ChannelOptionViewModel? channel = AvailableChannels.FirstOrDefault(candidate =>
-                                                   Sources.All(source =>
-                                                       !string.Equals(
-                                                           source.DeviceId,
-                                                           candidate.Id,
-                                                           StringComparison.Ordinal)))
-                                               ?? AvailableChannels.FirstOrDefault();
+        // Endpoints before applications. An application channel only exists while that app happens
+        // to be running, so seeding a brand-new input with one would hand the user a row that is
+        // already "not running" the next time they open the page; a device is still there tomorrow.
+        // With no application channels present this is exactly the previous first-unused behaviour.
+        ChannelOptionViewModel? channel = FirstUnusedChannel(applicationsAllowed: false)
+                                          ?? FirstUnusedChannel(applicationsAllowed: true)
+                                          ?? AvailableChannels.FirstOrDefault();
 
         if (channel is null)
         {
@@ -168,6 +182,21 @@ public sealed partial class InputSettingsViewModel : ObservableObject
         PublishChanges(persist: true);
     }
 
+    private ChannelOptionViewModel? FirstUnusedChannel(bool applicationsAllowed) =>
+        AvailableChannels.FirstOrDefault(candidate =>
+            (applicationsAllowed || !candidate.IsApplication)
+            && Sources.All(source =>
+                !string.Equals(source.DeviceId, candidate.Id, StringComparison.Ordinal)));
+
+    /// <summary>Re-enumerates endpoints and running applications.</summary>
+    /// <remarks>
+    /// This matters far more now than it did with hardware alone: an application channel appears
+    /// when the app starts and disappears when it quits, so the picker is stale the moment the user
+    /// opens Teams. Re-resolution is by <see cref="AudioChannel.Id"/>, and application ids are keyed
+    /// on the executable rather than the pid, so a source survives the app being restarted. An app
+    /// that is genuinely gone resolves to nothing and the row falls into the same "unavailable"
+    /// state a disconnected microphone does — it must not silently revert to another channel.
+    /// </remarks>
     [RelayCommand]
     private void Refresh()
     {
@@ -221,10 +250,19 @@ public sealed partial class InputSettingsViewModel : ObservableObject
     private InputSourceViewModel CreateSource(InputSourceSettings settings) =>
         new(settings, AvailableChannels, RemoveSource, OnSourceEdited);
 
+    internal static string DefaultNameFor(ChannelOptionViewModel channel) => channel.Channel.Kind switch
+    {
+        AudioChannelKind.Microphone => "Microphone",
+        // An application's friendly name ("Microsoft Teams") is already the label the user would
+        // have typed, and calling it "System audio" would misdescribe what the input records.
+        AudioChannelKind.Application when !string.IsNullOrWhiteSpace(channel.Name) => channel.Name,
+        AudioChannelKind.Application => "Application",
+        _ => "System audio",
+    };
+
     private InputSourceSettings NewSource(ChannelOptionViewModel channel)
     {
-        string baseName = channel.IsMicrophone ? "Microphone" : "System audio";
-        string name = UniqueName(baseName);
+        string name = UniqueName(DefaultNameFor(channel));
         return new InputSourceSettings
         {
             Id = Guid.NewGuid().ToString("n"),
@@ -280,6 +318,8 @@ public sealed partial class InputSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSources));
         OnPropertyChanged(nameof(HasNoSources));
         OnPropertyChanged(nameof(HasMissingEnabledSources));
+        OnPropertyChanged(nameof(HasProcessLoopbackWarning));
+        OnPropertyChanged(nameof(ProcessLoopbackWarningText));
         OnPropertyChanged(nameof(SummaryText));
         InputsChanged?.Invoke(this, EventArgs.Empty);
 
@@ -361,9 +401,18 @@ public sealed partial class InputSourceViewModel : ObservableObject
     private readonly ObservableCollection<ChannelOptionViewModel> _availableChannels;
     private readonly Action<InputSourceViewModel> _remove;
     private readonly Action<InputSourceViewModel> _changed;
+    /// <summary>Names we generated ourselves, and may therefore replace when the channel changes.</summary>
+    private static readonly string[] GenericNames = ["System audio", "Microphone", "Application", "Input"];
+
     private string _channelId;
     private AudioChannelKind _kind;
     private bool _updating;
+
+    /// <summary>False while the display name is still one we generated, so it may track the channel.</summary>
+    private bool _nameIsCustom;
+
+    /// <summary>Guards the rename we perform ourselves from being mistaken for the user typing.</summary>
+    private bool _renamingFromChannel;
 
     public InputSourceViewModel(
         InputSourceSettings settings,
@@ -380,7 +429,40 @@ public sealed partial class InputSourceViewModel : ObservableObject
         _kind = settings.Kind;
         DisplayName = settings.DisplayName;
         IsEnabled = settings.Enabled;
+
+        // A name we generated is a description of the channel, so it should follow the channel. A name
+        // the user typed is theirs, and we must never overwrite it. We cannot tell them apart after the
+        // fact, so classify once on load: anything matching a generated name is treated as ours.
+        _nameIsCustom = !IsGeneratedName(settings.DisplayName);
+
         UpdateChannels(availableChannels);
+    }
+
+    /// <summary>
+    /// True when <paramref name="name"/> looks like one this view model produced rather than one the
+    /// user typed — either a generic kind label or a channel's own friendly name, with or without the
+    /// " 2"/" 3" suffix <see cref="InputSettingsViewModel.UniqueName"/> appends to break ties.
+    /// </summary>
+    private bool IsGeneratedName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return true;
+        }
+
+        string trimmed = StripDuplicateSuffix(name.Trim());
+
+        return GenericNames.Contains(trimmed, StringComparer.CurrentCultureIgnoreCase)
+            || _availableChannels.Any(channel => string.Equals(
+                trimmed,
+                InputSettingsViewModel.DefaultNameFor(channel),
+                StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private static string StripDuplicateSuffix(string name)
+    {
+        int space = name.LastIndexOf(' ');
+        return space > 0 && int.TryParse(name.AsSpan(space + 1), out _) ? name[..space] : name;
     }
 
     public string Id { get; }
@@ -394,21 +476,47 @@ public sealed partial class InputSourceViewModel : ObservableObject
     [ObservableProperty] public partial ChannelOptionViewModel? SelectedChannel { get; set; }
 
     public string EffectiveDisplayName =>
-        string.IsNullOrWhiteSpace(DisplayName)
-            ? _kind == AudioChannelKind.Microphone ? "Microphone" : "System audio"
-            : DisplayName.Trim();
+        string.IsNullOrWhiteSpace(DisplayName) ? FallbackDisplayName : DisplayName.Trim();
 
     public string DeviceId => _channelId;
 
-    public string KindLabel => _kind == AudioChannelKind.Microphone ? "MICROPHONE" : "LOOPBACK";
+    /// <summary>True when this input targets one application rather than an endpoint.</summary>
+    /// <remarks>
+    /// Read from the persisted kind, not from <see cref="SelectedChannel"/>, so an input whose app
+    /// has since quit is still known to be an application input — that is precisely when the page
+    /// most needs to explain itself.
+    /// </remarks>
+    public bool IsApplication => _kind == AudioChannelKind.Application;
+
+    public string KindLabel => _kind switch
+    {
+        AudioChannelKind.Microphone => "MICROPHONE",
+        AudioChannelKind.Application => "APPLICATION",
+        _ => "LOOPBACK",
+    };
 
     public bool IsAvailable => SelectedChannel is not null;
 
     public bool IsMissing => !IsAvailable;
 
+    /// <summary>
+    /// An application that is not running is not a broken device — saying "device unavailable"
+    /// would send the user hunting through Sound settings for a cable that was never unplugged.
+    /// </summary>
     public string AvailabilityText => IsAvailable
         ? SelectedChannel!.Detail
-        : $"Device unavailable · {_channelId}";
+        : IsApplication
+            ? $"Not running · {ExecutableName ?? _channelId}"
+            : $"Device unavailable · {_channelId}";
+
+    private string? ExecutableName => ApplicationChannelId.ExecutableOf(_channelId);
+
+    private string FallbackDisplayName => _kind switch
+    {
+        AudioChannelKind.Microphone => "Microphone",
+        AudioChannelKind.Application => ExecutableName ?? "Application",
+        _ => "System audio",
+    };
 
     public void UpdateChannels(IReadOnlyList<ChannelOptionViewModel> channels)
     {
@@ -445,7 +553,15 @@ public sealed partial class InputSourceViewModel : ObservableObject
 
     partial void OnIsEnabledChanged(bool value) => Changed();
 
-    partial void OnDisplayNameChanged(string value) => Changed();
+    partial void OnDisplayNameChanged(string value)
+    {
+        if (!_renamingFromChannel)
+        {
+            _nameIsCustom = true;
+        }
+
+        Changed();
+    }
 
     partial void OnSelectedChannelChanged(ChannelOptionViewModel? value)
     {
@@ -453,6 +569,21 @@ public sealed partial class InputSourceViewModel : ObservableObject
         {
             _channelId = value.Id;
             _kind = value.Channel.Kind;
+
+            // Otherwise switching a "System audio" input to Discord leaves it labelled "System audio",
+            // and the note it writes claims to be something it is not.
+            if (!_nameIsCustom)
+            {
+                _renamingFromChannel = true;
+                try
+                {
+                    DisplayName = InputSettingsViewModel.DefaultNameFor(value);
+                }
+                finally
+                {
+                    _renamingFromChannel = false;
+                }
+            }
         }
 
         NotifyDerivedProperties();
@@ -471,6 +602,7 @@ public sealed partial class InputSourceViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(EffectiveDisplayName));
         OnPropertyChanged(nameof(DeviceId));
+        OnPropertyChanged(nameof(IsApplication));
         OnPropertyChanged(nameof(KindLabel));
         OnPropertyChanged(nameof(IsAvailable));
         OnPropertyChanged(nameof(IsMissing));

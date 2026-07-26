@@ -11,3 +11,6 @@ models/
 
 # local notes output, in case anyone points NotesRoot inside the repo
 notes-output/
+
+# third-party clones kept locally for reference only
+reference/

@@ -8,6 +8,10 @@
   <ItemGroup>
     <PackageReference Include="Whisper.net" />
     <PackageReference Include="Whisper.net.Runtime" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" />
+    <!-- Opt-in only; see the "Speech to text" rationale in Directory.Packages.props. -->
+    <PackageReference Include="Whisper.net.Runtime.Cuda.Windows"
+                      Condition="'$(WhisperCudaRuntime)' == 'true'" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
     <PackageReference Include="NAudio.Core" />
     <PackageReference Include="NAudio.Wasapi" />

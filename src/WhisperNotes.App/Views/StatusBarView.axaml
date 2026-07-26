@@ -39,7 +39,7 @@
           BorderBrush="{StaticResource BorderSubtle}"
           BorderThickness="0,1,0,0"
           Padding="{StaticResource PadTight}">
-    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="{StaticResource Space4}">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="{StaticResource Space4}">
 
       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
         <Ellipse Width="6" Height="6" VerticalAlignment="Center"
@@ -99,7 +99,17 @@
         </Panel>
       </Grid>
 
+      <!-- Sits beside ffmpeg because it answers the same kind of question: which piece of the
+           machine is doing the work. A CPU fallback is silent and about 40x slower, so it is
+           worth a permanent line rather than a notification nobody sees twice. -->
       <TextBlock Grid.Column="4"
+                 Classes="caption"
+                 VerticalAlignment="Center"
+                 MaxWidth="300"
+                 Text="{Binding DecodeBackendText}"
+                 ToolTip.Tip="{Binding DecodeBackendText}" />
+
+      <TextBlock Grid.Column="5"
                  Classes="caption"
                  VerticalAlignment="Center"
                  MaxWidth="300"

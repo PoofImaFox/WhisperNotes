@@ -2,9 +2,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Globalization;
+using Avalonia.Threading;
 using WhisperNotes.App.Composition;
 using WhisperNotes.App.Shell;
 using WhisperNotes.Core.Notes;
+using WhisperNotes.Core.Transcription;
 
 namespace WhisperNotes.App.ViewModels;
 
@@ -83,6 +86,7 @@ public sealed partial class MainWindowViewModel
         Browser.SessionActivated += OnSessionActivated;
         Capture.PropertyChanged += OnCapturePropertyChanged;
         Inputs.InputsChanged += OnInputsChanged;
+        WhisperRuntime.Resolved += OnWhisperRuntimeResolved;
 
         _interim.Start();
     }
@@ -174,6 +178,46 @@ public sealed partial class MainWindowViewModel
     public string FfmpegStatusText => _services.Media.IsAvailable
         ? $"ffmpeg: {_services.Media.FfmpegPath}"
         : "ffmpeg: not found (video import unavailable)";
+
+    /// <summary>
+    /// Where the decode runs. Whisper.net only resolves this when the first model is loaded, so
+    /// until a recording or an import has actually reached that point there is genuinely nothing to
+    /// report and saying "GPU" would be a guess. Driven by
+    /// <see cref="WhisperRuntime.Resolved"/> rather than by the transport flags — the load happens
+    /// on a background thread inside a decode that has already started, well after
+    /// <see cref="IsTransitioning"/> has gone back to false.
+    /// </summary>
+    public string DecodeBackendText => WhisperRuntime.LoadedBackend switch
+    {
+        WhisperBackend.Unresolved => "decode: resolved on first transcription",
+        WhisperBackend.Cpu => "decode: CPU (no GPU acceleration)",
+        var backend => $"decode: {backend} — {DecodeDeviceText()}"
+    };
+
+    /// <summary>
+    /// The adapter in use, shortened to just its name. ggml describes it in one dense line and each
+    /// backend uses its own separator to hang the details off — <c>NVIDIA GeForce RTX 3080 (NVIDIA)
+    /// | uma: 0 | …</c> on Vulkan, <c>NVIDIA GeForce RTX 3080, compute capability 8.6, …</c> on
+    /// CUDA — so the name is whatever precedes the first of either. Falls back to the whole
+    /// description, then to the bare index, so an unrecognised format costs detail, not
+    /// correctness.
+    /// </summary>
+    private string DecodeDeviceText()
+    {
+        var index = _settings.Transcription.GpuDevice;
+
+        WhisperDevice? match = WhisperRuntime.DeviceReport
+            .Cast<WhisperDevice?>()
+            .FirstOrDefault(device => device!.Value.Index == index);
+
+        if (match is not { } device)
+        {
+            return $"device {index.ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        var end = device.Description.IndexOfAny(['|', ',']);
+        return end > 0 ? device.Description[..end].Trim() : device.Description;
+    }
 
     public bool CanImportVideo =>
         !IsRecording && !IsTransitioning && !IsImportingVideo && _services.Media.IsAvailable;
@@ -281,6 +325,13 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    /// Raised on whichever background thread loaded the first model, so the refresh is marshalled
+    /// rather than applied where it lands.
+    /// </summary>
+    private void OnWhisperRuntimeResolved(object? sender, EventArgs e) =>
+        Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(DecodeBackendText)));
+
     private void OnInputsChanged(object? sender, EventArgs e)
     {
         if (Inputs.EnabledInputs.FirstOrDefault() is { } primary)
@@ -360,6 +411,10 @@ public sealed partial class MainWindowViewModel
         Browser.SessionActivated -= OnSessionActivated;
         Capture.PropertyChanged -= OnCapturePropertyChanged;
         Inputs.InputsChanged -= OnInputsChanged;
+
+        // WhisperRuntime.Resolved is static, so this is what keeps a closed window from being
+        // rooted for the life of the process.
+        WhisperRuntime.Resolved -= OnWhisperRuntimeResolved;
         await _settings.DisposeAsync().ConfigureAwait(true);
         await _recording.DisposeAsync().ConfigureAwait(true);
         await _videoImport.DisposeAsync().ConfigureAwait(true);

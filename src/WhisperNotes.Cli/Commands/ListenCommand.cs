@@ -113,7 +113,16 @@ internal static class ListenCommand
 
         var sessionDirectory = services.Notes.GetSessionDirectory(session.Id);
 
-        console.Field("channel", $"{channel.DisplayName} [{(channel.IsLoopback ? "loopback" : "microphone")}]", LabelWidth);
+        string kindLabel = channel.Channel.Kind switch
+        {
+            AudioChannelKind.Loopback => "loopback",
+            AudioChannelKind.Microphone => "microphone",
+            AudioChannelKind.Application when ProcessLoopbackSupport.IsSupported => "application",
+            AudioChannelKind.Application => "application → system audio fallback",
+            _ => "unknown"
+        };
+
+        console.Field("channel", $"{channel.DisplayName} [{kindLabel}]", LabelWidth);
         console.Field("session", sessionDirectory, LabelWidth);
         if (keepAudio)
         {

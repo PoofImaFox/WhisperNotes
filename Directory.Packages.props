@@ -5,10 +5,38 @@
   </PropertyGroup>
 
   <ItemGroup Label="Speech to text">
-    <!-- whisper.cpp bindings. The Runtime package is build-time only and drops native
-         DLLs into runtimes/win-*; no RuntimeIdentifier is required. -->
+    <!-- whisper.cpp bindings. The Runtime packages are build-time only and drop native
+         DLLs into runtimes/<backend>/win-x64; no RuntimeIdentifier is required. They flow
+         into the CLI and App output through Core's ProjectReference, so only Core needs
+         to reference them.
+
+         Two runtimes ship side by side and Whisper.net picks between them on first load
+         (see WhisperRuntime): Vulkan when the machine has a Vulkan-capable GPU, the plain
+         CPU build otherwise. Both are required - the Vulkan package carries only the
+         Vulkan-enabled whisper.dll, so without the CPU package a machine with no usable
+         GPU would have nothing to fall back to.
+
+         WHY VULKAN AND NOT CUDA. Measured here on an RTX 3080 with large-v3-turbo over
+         162 s of speech, warm, flash attention on:
+
+             CPU                   2.1x realtime
+             Vulkan               ~80x realtime
+             CUDA (13.1 cuBLAS)   ~78x realtime
+
+         So CUDA buys nothing over Vulkan on Ampere, and it costs a great deal to get:
+         Whisper.net.Runtime.Cuda.Windows is 154 MB of native payload copied into every
+         build output, and it is inert on its own because ggml-cuda-whisper.dll links
+         against cublas64_13.dll, which only arrives with a multi-gigabyte CUDA Toolkit
+         install. Vulkan needs vulkan-1.dll, which every current NVIDIA, AMD and Intel
+         driver already installs.
+
+         The CUDA runtime is still opt-in for anyone whose hardware does prefer it - build
+         with `dotnet build -p:WhisperCudaRuntime=true` and WhisperRuntime will pick it up
+         ahead of Vulkan with no code change. -->
     <PackageVersion Include="Whisper.net" Version="1.9.1" />
     <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime.Cuda.Windows" Version="1.9.1" />
   </ItemGroup>
 
   <ItemGroup Label="Speaker diarization">

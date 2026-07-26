@@ -108,10 +108,12 @@ a key. See the note on what leaves the machine at the top of this file.
 
 ### Inputs
 
-Add any loopback and microphone endpoints that belong in a session, give each a useful display
-name, and enable the set to record. Configured devices persist between launches; an unplugged
-device stays visible as unavailable instead of silently falling back to a different endpoint.
-Disabled inputs remain configured for later.
+Add any loopback, microphone, or single-application endpoint that belongs in a session, give each
+a useful display name, and enable the set to record. Configured devices persist between launches;
+an unplugged device stays visible as unavailable instead of silently falling back to a different
+endpoint. Disabled inputs remain configured for later. If an application input is configured on a
+Windows build that can't isolate it (see [Per-application capture](#per-application-capture)
+below), the page says so.
 
 Each source owns an independent capture and Whisper pipeline. A microphone source is labelled
 with its configured display name in the transcript; loopback sources continue to use anonymous
@@ -133,6 +135,30 @@ output device to `Voicemeeter In 1`, then capture that endpoint in WhisperNotes.
 contains the call and nothing else. VB-Audio Cable works the same way if you'd rather not run
 Voicemeeter.
 
+### Per-application capture
+
+**Cleaner still, if your machine supports it.** WhisperNotes can capture a single running
+application's audio directly, without routing anything through Voicemeeter or VB-Cable first. Pick
+`teams.exe` (or Outlook, or whatever else is talking) as an input and only that process's audio
+goes into the session — everything else playing on the machine is left out. `whispernotes devices`
+lists running applications in a third section, and the CLI's `--channel` takes the same slug, raw
+id, or bare executable name documented in [`docs/CLI.md`](docs/CLI.md). Application inputs run
+alongside any other input, so a Teams-audio input and a microphone input, or two different
+applications, are captured and transcribed in parallel like any other pair of sources.
+
+Be honest with yourself about the requirement, though: this uses WASAPI process loopback, which
+Windows only exposes starting at build 20348 — in practice that's **Windows 11** (or Server 2022).
+Microsoft's own documentation lists the floor as "Windows 10 Build 20348", which reads like a
+Windows 10 update but isn't one — 20348 is the Windows Server 2022 RTM build, and retail Windows 10
+tops out at 19045 (22H2), never reaching it. If you're on Windows 10, this feature is not available
+to you in practice.
+
+That said, picking an application input on an unsupported build does not fail or silently do
+nothing: it falls back to recording the whole machine's audio, same as a loopback endpoint, and
+says so wherever the choice is visible — in `whispernotes devices`, on the Inputs page, and in the
+capture bar's status text. You still get a transcript; it just isn't scoped to the one app the way
+you asked for.
+
 Either way, **watch the level meter before you trust a recording.** Silently capturing the wrong
 endpoint for an hour is the worst failure this tool has, and the meter is a two-second check
 against it. The toolbar monitors the first enabled input before recording and combines peaks from
@@ -153,8 +179,39 @@ into the playback mix.
 | `large-v3` | 3.1 GB | Best accuracy. |
 | `large-v3-turbo` | 1.6 GB | Near-large accuracy, much faster. Good if you have the disk. |
 
-Transcription runs on CPU by default. Download weights ahead of time — the first use of an
-un-fetched `medium` would otherwise stall on a 1.5 GB download exactly when your meeting starts.
+Download weights ahead of time — the first use of an un-fetched `medium` would otherwise stall on
+a 1.5 GB download exactly when your meeting starts.
+
+### GPU decode
+
+Transcription runs on the GPU wherever the machine has one, with no toolkit to install and nothing
+to switch on. It matters more than the model choice does. Measured here on an RTX 3080 over 162 s
+of speech, `large-v3-turbo`, end to end through `transcribe`:
+
+| | Wall clock |
+|---|---|
+| CPU (`--no-gpu`) | 104 s |
+| GPU | 7.6 s |
+
+The backend is **Vulkan**, chosen over CUDA on purpose: it measured the same speed on Ampere
+(~80x realtime either way) while CUDA additionally needs a multi-gigabyte CUDA Toolkit install to
+supply `cublas64_13.dll`. Vulkan needs `vulkan-1.dll`, which current NVIDIA, AMD and Intel drivers
+already install. The reasoning and the numbers are in `Directory.Packages.props`; build with
+`dotnet build -p:WhisperCudaRuntime=true` if your hardware prefers CUDA.
+
+Check what yours resolved to:
+
+```powershell
+dotnet run --project src/WhisperNotes.Cli -- doctor
+```
+
+That prints the backend and every adapter it can see. A desktop with an active integrated GPU
+shows two — pick between them with `--gpu-device <n>`, and keep the winner with
+`config set Gpu.Device <n>`. `config set Gpu.Enabled false` (or `--no-gpu` for one run) forces the
+CPU path, which is only worth doing to work around a bad driver.
+
+The desktop app reports the same thing in the status bar, next to the ffmpeg line, from the moment
+the first transcription starts.
 
 If your calls are full of client names, product names, or acronyms, set a vocabulary hint:
 
@@ -191,10 +248,13 @@ a clean portable copy rather than copying the internal folders directly.
 
 ## Requirements
 
-- Windows 10/11
+- Windows 10/11. [Per-application capture](#per-application-capture) additionally needs Windows 11
+  (build 20348+); it falls back to whole-machine loopback rather than failing on Windows 10.
 - .NET 10 SDK
 - ffmpeg on `PATH` — needed for CLI `transcribe` and the desktop **Import video…** action. Set
   `--ffmpeg` or `config set FfmpegPath` if it lives somewhere unusual.
+- A Vulkan-capable GPU driver for GPU decode. Optional, in that it falls back to the CPU without
+  one, but the fallback is about 40x slower. See [GPU decode](#gpu-decode).
 - **Visual Studio 2026 (18.x)** if you want an IDE. See below.
 
 ### Opening in Visual Studio
@@ -229,13 +289,17 @@ depends on it.
   has per-participant audio streams, `transcribe --list-streams` will show them and `--stream`
   will pick one. Anonymous speaker labelling distinguishes voices in a mixed stream, but overlapping
   speech can still be ambiguous.
-- **CPU decode.** GPU acceleration exists in Whisper.net via separate CUDA/Vulkan runtime
-  packages but isn't wired up.
+- **GPU decode needs a Vulkan-capable driver.** Every current NVIDIA, AMD and Intel driver
+  installs one, but a machine without it silently falls back to the CPU and runs about 40x slower.
+  `whispernotes doctor` says which one you got.
+- **Per-application capture needs Windows 11 (build 20348+).** On Windows 10 it does not fail —
+  it falls back to whole-machine loopback and says so in `devices`, the Inputs page, and the
+  capture bar. See [Per-application capture](#per-application-capture).
 - Windows only, because it's built on WASAPI.
 
 ## Roadmap
 
-- GPU decode.
+- Nothing pending.
 
 ## Layout
 

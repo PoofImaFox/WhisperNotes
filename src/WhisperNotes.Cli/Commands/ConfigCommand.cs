@@ -37,6 +37,12 @@ internal static class ConfigCommand
         new("Threads",
             static s => Optional(s.Threads, "(auto)"),
             static (s, v) => s.Threads = PositiveIntOrNull(v)),
+        new("Gpu.Enabled",
+            static s => Flag(s.Gpu.Enabled),
+            static (s, v) => s.Gpu.Enabled = Boolean(v.Key, v.Trimmed)),
+        new("Gpu.Device",
+            static s => Whole(s.Gpu.Device),
+            static (s, v) => s.Gpu.Device = DeviceIndex(v.Key, v.Trimmed)),
         new("LastChannelId",
             static s => Optional(s.LastChannelId, "(none)"),
             static (s, v) => s.LastChannelId = TextOrNull(v)),
@@ -256,6 +262,14 @@ internal static class ConfigCommand
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
             ? parsed
             : throw new CliException(ExitCode.Usage, $"{key} needs a positive whole number, got '{value}'.");
+
+    /// <summary>An index into the adapter list, so unlike every other count here zero is valid.</summary>
+    private static int DeviceIndex(string key, string value) =>
+        int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0
+            ? parsed
+            : throw new CliException(
+                ExitCode.Usage,
+                $"{key} is an adapter index as listed by 'whispernotes doctor', so it needs 0 or more, got '{value}'.");
 
     private static double PositiveDouble(string key, string value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed > 0

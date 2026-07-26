@@ -29,9 +29,13 @@
                     Orientation="Horizontal"
                     VerticalAlignment="Center"
                     Spacing="{DynamicResource Space2}">
+          <!-- Applications come and go far faster than hardware does, so the label has to promise
+               that this button re-reads the running process list too, not just the endpoints. -->
           <Button Classes="subtle"
-                  Content="Refresh devices"
-                  Command="{Binding RefreshCommand}" />
+                  Content="Refresh devices &amp; apps"
+                  Command="{Binding RefreshCommand}"
+                  ToolTip.Tip="Re-read the audio endpoints and the applications currently playing audio"
+                  AutomationProperties.Name="Refresh devices and running applications" />
           <Button Classes="accent"
                   Content="Add input"
                   Command="{Binding AddSourceCommand}"
@@ -56,13 +60,23 @@
               <TextBlock Classes="caption"
                          TextWrapping="Wrap"
                          TextTrimming="None"
-                         Text="Loopback hears system playback such as Teams. Microphone captures your local voice or another physical input." />
+                         Text="Loopback hears system playback such as Teams. Microphone captures your local voice or another physical input. An application input hears one running app on its own, so two apps can be transcribed side by side without either bleeding into the other." />
             </StackPanel>
           </Grid>
         </Border>
 
         <Border Classes="callout warning" IsVisible="{Binding HasMissingEnabledSources}">
-          <TextBlock Text="One or more enabled devices are unavailable. Reconnect them, choose a replacement, or disable those inputs before recording." />
+          <TextBlock Text="One or more enabled inputs are unavailable. Reconnect the device or reopen the application, choose a replacement, or disable those inputs before recording." />
+        </Border>
+
+        <!-- Not an error: the recording still happens, it is just wider than the user asked for.
+             The copy comes from ProcessLoopbackSupport so the explanation and the check that
+             produced it cannot drift apart. -->
+        <Border Classes="callout warning" IsVisible="{Binding HasProcessLoopbackWarning}">
+          <StackPanel Spacing="{DynamicResource Space2}">
+            <TextBlock Text="{Binding ProcessLoopbackWarningText}" />
+            <TextBlock Text="Nothing is lost — those inputs record the whole system output instead, so the app you wanted is captured along with everything else playing." />
+          </StackPanel>
         </Border>
 
         <ItemsControl ItemsSource="{Binding Sources}">
@@ -93,20 +107,43 @@
                                AutomationProperties.Name="Input display name" />
                     </ctl:LabeledField>
 
-                    <ctl:LabeledField Grid.Column="1" Header="Audio device">
+                    <ctl:LabeledField Grid.Column="1" Header="Audio device or application">
                       <ComboBox ItemsSource="{Binding AvailableChannels}"
                                 SelectedItem="{Binding SelectedChannel}"
                                 HorizontalAlignment="Stretch"
-                                PlaceholderText="Choose a device"
-                                AutomationProperties.Name="Audio device">
+                                PlaceholderText="Choose a device or application"
+                                AutomationProperties.Name="Audio device or application">
+                        <!--
+                          The list now mixes endpoints with running applications, so the first row of
+                          each kind carries its group header — otherwise "Microsoft Teams" sits in the
+                          same undifferentiated run as "Speakers (Realtek)" and the two read as the
+                          same sort of thing, which is the whole misunderstanding this page exists to
+                          prevent. SelectionBoxItemTemplate repeats the row WITHOUT the header, since
+                          it outranks ItemTemplate for the closed control: without it the collapsed
+                          box would print the group heading above the chosen device.
+                        -->
                         <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ChannelOptionViewModel">
+                            <StackPanel Spacing="{DynamicResource Space1}">
+                              <TextBlock Classes="section"
+                                         Text="{Binding GroupHeader}"
+                                         IsVisible="{Binding ShowGroupHeader}"
+                                         TextWrapping="Wrap" />
+                              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space3}">
+                                <TextBlock Grid.Column="0" Text="{Binding Summary}" />
+                                <TextBlock Grid.Column="1" Classes="caption" Text="{Binding KindLabel}" />
+                              </Grid>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                        <ComboBox.SelectionBoxItemTemplate>
                           <DataTemplate x:DataType="vm:ChannelOptionViewModel">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space3}">
                               <TextBlock Grid.Column="0" Text="{Binding Summary}" />
                               <TextBlock Grid.Column="1" Classes="caption" Text="{Binding KindLabel}" />
                             </Grid>
                           </DataTemplate>
-                        </ComboBox.ItemTemplate>
+                        </ComboBox.SelectionBoxItemTemplate>
                       </ComboBox>
                     </ctl:LabeledField>
                   </Grid>
@@ -146,7 +183,7 @@
                 Padding="{DynamicResource PadPane}"
                 IsVisible="{Binding HasNoSources}">
           <ctl:EmptyState Heading="No inputs configured"
-                          Body="Connect or enable an audio endpoint, refresh the device list, then add it here." />
+                          Body="Connect an audio endpoint or open the application you want to capture, refresh the list, then add it here." />
         </Border>
       </StackPanel>
     </ScrollViewer>

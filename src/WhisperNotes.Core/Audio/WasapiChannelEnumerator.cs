@@ -3,9 +3,10 @@ using NAudio.CoreAudioApi;
 namespace WhisperNotes.Core.Audio;
 
 /// <summary>
-/// Lists the machine's active WASAPI endpoints. Render endpoints are offered as loopback taps
-/// (that is how Teams and every other app's output gets captured); capture endpoints are offered
-/// as microphones.
+/// Lists the machine's active WASAPI endpoints, plus the applications currently playing audio.
+/// Render endpoints are offered as loopback taps (that is how Teams and every other app's output
+/// gets captured); capture endpoints are offered as microphones; and each application holding a
+/// render session is offered on its own, so a transcript can exclude everything else on the box.
 /// </summary>
 public sealed class WasapiChannelEnumerator : IAudioChannelEnumerator
 {
@@ -18,6 +19,15 @@ public sealed class WasapiChannelEnumerator : IAudioChannelEnumerator
     /// <summary>Capture endpoints pick the communications default; that is the headset users talk into.</summary>
     private const Role MicrophoneRole = Role.Communications;
 
+    /// <summary>
+    /// Endpoints first (loopback, then microphones, defaults first within each kind), applications
+    /// last.
+    /// </summary>
+    /// <remarks>
+    /// Applications trail the endpoints because they are the volatile part of the list: they come and
+    /// go with whatever the user has open, and a stable prefix keeps the picker from reshuffling the
+    /// rows that never change.
+    /// </remarks>
     public IReadOnlyList<AudioChannel> GetChannels()
     {
         using var devices = new MMDeviceEnumerator();
@@ -25,6 +35,7 @@ public sealed class WasapiChannelEnumerator : IAudioChannelEnumerator
         var channels = new List<AudioChannel>();
         channels.AddRange(Collect(devices, DataFlow.Render, AudioChannelKind.Loopback, LoopbackRole));
         channels.AddRange(Collect(devices, DataFlow.Capture, AudioChannelKind.Microphone, MicrophoneRole));
+        channels.AddRange(CollectApplications(devices));
         return channels;
     }
 
@@ -35,6 +46,13 @@ public sealed class WasapiChannelEnumerator : IAudioChannelEnumerator
             return null;
         }
 
+        return ApplicationChannelId.IsApplicationId(channelId)
+            ? FindApplication(channelId)
+            : FindDevice(channelId);
+    }
+
+    private static AudioChannel? FindDevice(string channelId)
+    {
         try
         {
             using var devices = new MMDeviceEnumerator();
@@ -58,6 +76,84 @@ public sealed class WasapiChannelEnumerator : IAudioChannelEnumerator
             // A persisted id can outlive its device: unplugged headset, uninstalled driver,
             // disabled endpoint. The contract is "return null", not "throw at the caller".
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves an <c>app:teams.exe</c> id back to a live channel, or null when the application is no
+    /// longer playing audio.
+    /// </summary>
+    /// <remarks>
+    /// A closed application is treated exactly like an unplugged headset — null, not an exception — so
+    /// the caller's existing "the input you saved is missing" path handles both without knowing the
+    /// difference.
+    /// </remarks>
+    private static AudioChannel? FindApplication(string channelId)
+    {
+        string? executable = ApplicationChannelId.ExecutableOf(channelId);
+        if (string.IsNullOrWhiteSpace(executable))
+        {
+            return null;
+        }
+
+        try
+        {
+            AudioSessionApp? app = AudioSessionCatalog.GetApplications()
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.ExecutableName, executable, StringComparison.OrdinalIgnoreCase));
+
+            if (app is null)
+            {
+                return null;
+            }
+
+            using var devices = new MMDeviceEnumerator();
+            (int sampleRate, int channels) = DefaultRenderMixFormat(devices);
+            return Describe(app, sampleRate, channels);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return null;
+        }
+    }
+
+    private static List<AudioChannel> CollectApplications(MMDeviceEnumerator devices)
+    {
+        // Applications have no endpoint of their own, so there is no per-app mix format to report.
+        // The process-loopback stream is materialised against the default render endpoint, so that
+        // endpoint's format is the honest answer for "what will this sound like".
+        (int sampleRate, int channels) = DefaultRenderMixFormat(devices);
+
+        return [.. AudioSessionCatalog.GetApplications().Select(app => Describe(app, sampleRate, channels))];
+    }
+
+    private static AudioChannel Describe(AudioSessionApp app, int sampleRate, int channels) =>
+        new(
+            ApplicationChannelId.ForExecutable(app.ExecutableName),
+            app.DisplayName,
+            AudioChannelKind.Application,
+            IsDefault: false,
+            sampleRate,
+            channels,
+            app.ProcessId,
+            app.ExecutableName);
+
+    private static (int SampleRate, int Channels) DefaultRenderMixFormat(MMDeviceEnumerator devices)
+    {
+        try
+        {
+            if (!devices.HasDefaultAudioEndpoint(DataFlow.Render, LoopbackRole))
+            {
+                return (0, 0);
+            }
+
+            using MMDevice device = devices.GetDefaultAudioEndpoint(DataFlow.Render, LoopbackRole);
+            return MixFormat(device);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Informational only — a machine with no render endpoint still gets a usable app list.
+            return (0, 0);
         }
     }
 

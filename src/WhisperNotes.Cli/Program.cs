@@ -23,6 +23,7 @@ internal static class Program
         root.Subcommands.Add(SessionsCommand.Create());
         root.Subcommands.Add(ExportCommand.Create());
         root.Subcommands.Add(ModelsCommand.Create());
+        root.Subcommands.Add(DoctorCommand.Create());
         root.Subcommands.Add(ConfigCommand.Create());
 
         InvocationConfiguration configuration = new()

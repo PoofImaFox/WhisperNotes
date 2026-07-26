@@ -35,6 +35,22 @@ internal static class CliOptions
         Recursive = true
     };
 
+    // Global rather than per-command so 'doctor' takes them too: the point of --gpu-device is to
+    // try an adapter without committing it to the settings file, and doctor is where you look to
+    // find out whether it helped.
+    public static Option<bool> NoGpu { get; } = new("--no-gpu")
+    {
+        Description = "Decode on the CPU. Roughly 40x slower — for working around a bad driver.",
+        Recursive = true
+    };
+
+    public static Option<int?> GpuDevice { get; } = new("--gpu-device")
+    {
+        Description = "Which adapter to decode on, indexed as 'whispernotes doctor' lists them.",
+        HelpName = "n",
+        Recursive = true
+    };
+
     public static Option<string> Title() => new("--title", "-t")
     {
         Description = "Session title; also the folder name.",
@@ -107,5 +123,7 @@ internal static class CliOptions
         root.Options.Add(ModelsRoot);
         root.Options.Add(Ffmpeg);
         root.Options.Add(Verbose);
+        root.Options.Add(NoGpu);
+        root.Options.Add(GpuDevice);
     }
 }

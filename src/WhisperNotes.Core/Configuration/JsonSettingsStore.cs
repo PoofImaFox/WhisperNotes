@@ -120,8 +120,21 @@ public sealed class JsonSettingsStore : ISettingsStore
         NormaliseInputSources(settings);
         NormaliseAi(settings);
         NormaliseDiarization(settings);
+        NormaliseGpu(settings);
 
         return settings;
+    }
+
+    private static void NormaliseGpu(AppSettings settings)
+    {
+        // A settings file written before GPU decode existed has no "gpu" node at all, and must come
+        // back with it enabled — that is the difference between 2x and 80x realtime, and nobody
+        // upgrading should have to go and find a switch to get it.
+        settings.Gpu ??= new GpuSettings();
+
+        // An index into the adapter list, so a negative one addresses nothing. Fall back to the
+        // first device rather than refusing to decode.
+        settings.Gpu.Device = Math.Max(settings.Gpu.Device, 0);
     }
 
     private static void NormaliseAi(AppSettings settings)
@@ -192,7 +205,7 @@ public sealed class JsonSettingsStore : ISettingsStore
             input.ChannelId = input.ChannelId.Trim();
             input.Kind = Enum.IsDefined(input.Kind) ? input.Kind : Audio.AudioChannelKind.Loopback;
             input.DisplayName = string.IsNullOrWhiteSpace(input.DisplayName)
-                ? input.Kind == Audio.AudioChannelKind.Microphone ? "Microphone" : "System audio"
+                ? DefaultDisplayName(input)
                 : input.DisplayName.Trim();
             normalised.Add(input);
         }
@@ -206,4 +219,21 @@ public sealed class JsonSettingsStore : ISettingsStore
             settings.LastChannelId = primary.ChannelId;
         }
     }
+
+    /// <summary>
+    /// Names an input whose display name was left blank, so the UI never renders an empty row.
+    /// </summary>
+    /// <remarks>
+    /// Application inputs fall back to the executable recorded in the channel id rather than the
+    /// generic "System audio", which would otherwise mislabel a per-app capture as a whole-machine one.
+    /// </remarks>
+    private static string DefaultDisplayName(InputSourceSettings input) => input.Kind switch
+    {
+        Audio.AudioChannelKind.Microphone => "Microphone",
+        Audio.AudioChannelKind.Application =>
+            Audio.ApplicationChannelId.ExecutableOf(input.ChannelId) is { Length: > 0 } executable
+                ? executable
+                : "Application",
+        _ => "System audio"
+    };
 }

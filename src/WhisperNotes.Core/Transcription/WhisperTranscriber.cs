@@ -65,7 +65,24 @@ public sealed class WhisperTranscriber : ITranscriber
             throw new FileNotFoundException($"Whisper model not found at '{modelPath}'.", modelPath);
         }
 
-        WhisperFactory factory = WhisperFactory.FromPath(modelPath);
+        WhisperRuntime.Prepare(options.UseGpu);
+
+        WhisperFactory factory = WhisperFactory.FromPath(modelPath, new WhisperFactoryOptions
+        {
+            UseGpu = options.UseGpu,
+            GpuDevice = options.GpuDevice,
+
+            // Not a marginal tuning knob — it is most of the GPU win. Measured on an RTX 3080 with
+            // large-v3-turbo: 11x realtime without it, ~80x with. It helps the CPU path too
+            // (1.7x -> 2.1x), so there is no backend worth switching it off for. The one thing it
+            // is incompatible with is DTW timestamps, which we do not ask for.
+            UseFlashAttention = true
+        });
+
+        // The factory is what forces the native library to load, so this is the earliest moment
+        // anyone can be told which backend the process ended up on.
+        WhisperRuntime.MarkResolved();
+
         try
         {
             bool detectLanguage = string.IsNullOrWhiteSpace(options.Language)

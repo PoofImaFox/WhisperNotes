@@ -54,12 +54,23 @@ public interface ITranscriberFactory
 /// <param name="Threads">Decoder threads; null means "pick a sensible default".</param>
 /// <param name="Translate">Translate to English rather than transcribing verbatim.</param>
 /// <param name="InitialPrompt">Domain vocabulary hint — useful for client/product names.</param>
+/// <param name="UseGpu">
+/// Decode on the GPU where one is usable, falling back to the CPU where it is not. Worth roughly
+/// 40x on large-v3-turbo, so it is only worth turning off to work around a bad driver.
+/// </param>
+/// <param name="GpuDevice">
+/// Which adapter, in the order <see cref="WhisperRuntime.DeviceReport"/> lists them. Defaults to
+/// the first, which is not always the fast one: a desktop with an active integrated GPU enumerates
+/// two, and whichever the driver puts first wins.
+/// </param>
 public sealed record TranscriptionOptions(
     WhisperModelSize Model = WhisperModelSize.Base,
     string Language = "auto",
     int? Threads = null,
     bool Translate = false,
-    string? InitialPrompt = null);
+    string? InitialPrompt = null,
+    bool UseGpu = true,
+    int GpuDevice = 0);
 
 /// <summary>Resolves and downloads ggml weight files.</summary>
 public interface IWhisperModelStore

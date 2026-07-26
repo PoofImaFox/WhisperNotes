@@ -20,6 +20,14 @@ LOOPBACK (system audio — capture what you HEAR, e.g. Teams)
 MICROPHONE (capture what you SAY)
   * headset-mic            Headset Microphone (Jabra Evolve 65)       16000 Hz / 1ch   [default]
 
+APPLICATIONS (capture ONE app's audio — nothing else on the machine)
+  ! Per-application capture needs Windows build 20348 or later (Windows 11 / Server 2022). This machine reports build 19045, so application inputs record system audio instead.
+    brave       brave                               44100 Hz / 2ch
+    discord     Discord                             44100 Hz / 2ch
+    outlook     Inbox - you@example.com - Outlook   44100 Hz / 2ch
+    ms-teams    ms-teams                            44100 Hz / 2ch
+    spotify     Spotify Premium                     44100 Hz / 2ch
+
   * = system default for that role
 ```
 
@@ -32,7 +40,26 @@ WASAPI endpoint id looks like `{0.0.0.00000000}.{ab116aac-...}` and nobody is re
 case-insensitively. The short id stays stable when you change your default device, and a numeric
 suffix (`-2`, `-3`) disambiguates endpoints whose names collide.
 
-Add `--verbose` to also print each endpoint's raw id.
+**APPLICATIONS** lists running processes instead of device endpoints, so you can capture, say,
+Outlook's audio without also picking up Spotify. Its slug is derived from the executable stem
+(`outlook`, not the window title), and the raw id is `app:outlook.exe` — keyed on the executable
+name rather than the process id, so it keeps working after the app (or WhisperNotes) restarts.
+`--channel` accepts any of the slug, the raw id, or the bare executable name (`outlook.exe`).
+Applications are never chosen implicitly: `listen` with no `--channel` always falls back to device
+loopback, never to an app, since guessing which running process to isolate would silently narrow a
+recording to whatever happened to have focus.
+
+Per-application capture is built on WASAPI process loopback, which Windows only exposes from build
+20348 onward — in practice that means Windows 11 or Windows Server 2022; Microsoft's own docs call
+the floor "Windows 10 Build 20348", which is misleading, since 20348 is the Server 2022 RTM build
+and retail Windows 10 tops out at 19045. Below that build, an application input does not fail —
+it falls back to recording the whole machine's audio, same as a LOOPBACK entry, and every surface
+(the `!` line above, `listen`'s channel line, the Inputs page, and the capture bar) says so rather
+than quietly scoping the note to more than it claims.
+
+Add `--verbose` to also print each endpoint's raw id; for an application this line also carries
+its live process id, since that's the one place a pid is shown — it isn't part of the id itself
+because pids get recycled between runs.
 
 ## `whispernotes listen`
 
@@ -40,7 +67,7 @@ Live capture and dictation. Runs until Ctrl+C, then finalizes the session and wr
 
 | Option | Default | Meaning |
 |---|---|---|
-| `-c, --channel <id>` | last used, else default render loopback | Endpoint from `whispernotes devices`. |
+| `-c, --channel <id>` | last used, else default render loopback | Endpoint or application from `whispernotes devices`. |
 | `-t, --title <text>` | local timestamp | Session title; also the folder name. |
 | `-p, --project <name>` | from settings | Groups the session into a project folder. |
 | `-m, --model <size>` | `base` | `tiny`\|`base`\|`small`\|`medium`\|`large-v3`\|`large-v3-turbo` |
@@ -76,6 +103,12 @@ the decoder flush the audio still buffered, appends those last segments, finaliz
 The endpoint actually used is written back to `LastChannelId`, which is what "last used" in the
 table above reads on the next run. Nothing else about the invocation is persisted — a one-off
 `--notes-root` or `--models-root` never ends up in the settings file.
+
+`--channel` targeting an application prints an `[application]` kind on the channel line instead of
+`[loopback]` or `[microphone]` — or `[application → system audio fallback]` on a Windows build
+below 20348, where the session is honestly labelled as system audio rather than pretending it
+isolated the app. Since applications are excluded from the "last used, else default" fallback in
+the table above, an application `--channel` always has to be named explicitly.
 
 With `--keep-audio` the captured WAV is written to `<session>/audio/session.wav` as 16 kHz mono
 16-bit PCM, which is the format `transcribe` can re-read directly.
@@ -197,6 +230,34 @@ ZIP, then open that folder as a vault or move its project folders into an existi
 Pre-downloading matters: the first `listen` on an un-fetched `medium` would otherwise stall for
 a 1.5 GB download at the exact moment your meeting starts.
 
+## `whispernotes doctor`
+
+Answers "is this actually using my graphics card?". Whisper.net picks a native runtime when the
+first model loads and falls back to the CPU without saying so, and a CPU fallback looks exactly
+like a GPU run except roughly 40x slower. `doctor` loads a model and reports what came back.
+
+```
+$ whispernotes doctor
+
+  model       large-v3-turbo
+  requested   gpu, device 0
+  backend     vulkan — gpu accelerated
+  devices     0 = NVIDIA GeForce RTX 3080 (NVIDIA) | uma: 0 | fp16: 1 | bf16: 1 | ...
+              1 = Intel(R) UHD Graphics 770 (Intel Corporation) | uma: 1 | fp16: 1 | ...
+
+  More than one adapter is visible and device 0 is in use. Try the others with --gpu-device <n>,
+  and make the winner stick by setting Gpu.Device in the settings file.
+  load        1.7 s
+```
+
+It needs at least one model on disk — it has to load something to find out what that load resolves
+to. Any downloaded model will do; if the configured one is missing it uses whichever is present,
+and tells you to `models download tiny` if none are.
+
+`backend: cpu` when you did ask for the GPU is the failure case, and `doctor` says so and why. The
+Vulkan runtime needs `vulkan-1.dll`, which current NVIDIA, AMD and Intel drivers all install, so
+updating the graphics driver is the usual fix. `--verbose` prints every path the loader tried.
+
 ## `whispernotes config`
 
 | Subcommand | Meaning |
@@ -206,7 +267,7 @@ a 1.5 GB download at the exact moment your meeting starts.
 | `config path` | Print the settings file path. |
 
 Keys, matched case-insensitively: `NotesRoot`, `ModelsRoot`, `Model`, `Language`, `Threads`,
-`LastChannelId`, `DefaultProject`, `InitialPrompt`, `KeepSessionAudio`, `FfmpegPath`,
+`Gpu.Enabled`, `Gpu.Device`, `LastChannelId`, `DefaultProject`, `InitialPrompt`, `KeepSessionAudio`, `FfmpegPath`,
 `Chunking.MinChunkSeconds`, `Chunking.MaxChunkSeconds`, `Chunking.SilenceMilliseconds`,
 `Chunking.SilenceThreshold`, `Diarization.Enabled`, `Diarization.MaxSpeakers`,
 `Diarization.MergeThreshold`, `Diarization.MinObservationSeconds`,
@@ -224,6 +285,13 @@ options. `config set` always writes the file itself, never the merged view.
 | `--models-root <dir>` | Override the models directory. |
 | `--ffmpeg <path>` | Explicit ffmpeg location if it isn't on `PATH`. |
 | `--verbose` | Diagnostic logging, including resolved binary paths. |
+| `--no-gpu` | Decode on the CPU. Roughly 40x slower — for working around a bad driver. |
+| `--gpu-device <n>` | Which adapter to decode on, indexed as `whispernotes doctor` lists them. |
+
+`--no-gpu` and `--gpu-device` are per-invocation, like every other global: they never touch the
+settings file. Make a choice permanent with `config set Gpu.Enabled` / `config set Gpu.Device`.
+They apply to `doctor` too, which is the point — try an adapter, see what it resolved to, keep the
+one that won.
 
 ## Exit codes
 
