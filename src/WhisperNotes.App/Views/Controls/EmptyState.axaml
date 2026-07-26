@@ -1,0 +1,37 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:EmptyState}" TargetType="ctl:EmptyState">
+      <Setter Property="Spacing" Value="{DynamicResource Space4}" />
+      <Setter Property="MaxWidth" Value="{DynamicResource EmptyStateMaxWidth}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <!-- An empty state is never a target. One of the four sites floats over a live ListBox and
+           had to switch this off by hand; the other three simply never noticed it mattered. -->
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:EmptyState">
+          <StackPanel Spacing="{TemplateBinding Spacing}">
+            <TextBlock Classes="h2"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       Text="{TemplateBinding Heading}"
+                       IsVisible="{TemplateBinding Heading, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+            <TextBlock Classes="caption"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       Text="{TemplateBinding Body}"
+                       IsVisible="{TemplateBinding Body, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

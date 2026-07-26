@@ -1,0 +1,312 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             xmlns:dd="using:WhisperNotes.App.DesignData"
+             xmlns:controls="using:WhisperNotes.App.Views.Controls"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.CaptureBarView"
+             x:DataType="vm:MainWindowViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Main}">
+
+  <!--
+    ==========================================================================================
+    Capture bar — ONE row.
+
+    It used to be a three-column block ~180px tall: a stack of section labels, a channel
+    detail line, a model picker with a reserved progress strip, session/project inputs and a
+    "NOT RECORDING" explainer card. That is a quarter of the window spent before the first
+    transcript line, and most of it restated what the status bar already says.
+
+    Everything StatusBarView already carries has been deleted rather than relocated:
+      * the primary monitored-input detail ("LOOPBACK · native 44.1 kHz · stereo · resampled
+        to 16 kHz") — StatusBarView column 1 renders it verbatim; the toolbar now shows the
+        enabled-input count and opens the dedicated Inputs page
+      * the model status ("base · on disk") — StatusBarView column 0, dot and all; the model
+        picker's own item template repeats it per row anyway
+      * the INPUTS / WHISPER MODEL / SESSION section headings — labels and the
+        controls' own shapes say the same thing in a row that is read left to right
+      * the "NOT RECORDING" card — pure prose, and the record button's own label and colour
+        already state the transport's state
+      * the model download progress — StatusBarView column 3, next to the video-import
+        progress it is visually identical to. Downloading weights is a background operation,
+        not a transport control, and reserving a strip for it under the picker centred the
+        picker 8px above every other control on this row.
+
+    HEIGHT IS PINNED, deliberately (CaptureBarRowHeight). This bar sizes the row above the
+    transcript ScrollViewer; if it changes height at runtime, the viewport is resized under a
+    stationary scroll offset and the transcript loses its place. A fixed row height makes that
+    impossible by construction: no state change — recording, downloading, a silent channel, a
+    long device name — can move it, because nothing in here is allowed to measure taller than
+    the row.
+
+    WIDTH IS BUDGETED, for the same class of reason. MainWindow's MinWidth is 1040 and a Grid
+    does not scroll, so anything past the window is simply clipped off the right edge — which
+    is where the record button lives. Every column below is either a star that gives way or a
+    hard floor listed here, and the floors sum to 996:
+
+      toolbar Padding (PadControl 10,6)                                 20
+      7 x ColumnSpacing Space3                                          56
+      col 0  INPUTS summary       ChannelMinWidth                       88
+      col 1  refresh              RowControlHeight square               28
+      col 2  level meter          well 108 + Space3 + readout 64       180
+      col 3  model                ModelComboWidth 140 + Space2 + 28    172
+      col 4  session title        SessionMinWidth                       88
+      col 5  project              ProjectWidth                          88
+      col 6  transport / import   TransportSlotWidth                   120
+      col 7  record               RecordMinWidth                       160
+                                                                      ====
+                                                                      1000
+
+    It was 1359 idle and ~1422 with a silent channel, against a 1360px default window. No
+    state change adds to the total any more: the meter's silence warning replaces its readout
+    instead of appearing beside it, the transport shares a fixed cell with the import button
+    (they are mutually exclusive), and the record button has a floor wide enough for its
+    longest label so pressing it cannot shrink it out from under the pointer.
+    ==========================================================================================
+  -->
+
+  <UserControl.Resources>
+    <!-- Bar geometry. Named rather than inline so no raw number appears in the markup. -->
+    <x:Double x:Key="CaptureBarRowHeight">32</x:Double>
+
+    <!-- ONE content height for the row. App.axaml ships three (Button.icon 26, Button/TextBox/
+         ComboBox 28, Button.record 38), so their centres lined up and their edges did not;
+         until there is a ControlHeight token to share, the row pins them in its own styles. -->
+    <x:Double x:Key="RowControlHeight">28</x:Double>
+
+    <!-- Button.record's 16,9 padding is what forces its 38px box. The row height decides now,
+         so the padding is only there to keep the label off the edges. -->
+    <Thickness x:Key="PadRecord">16,2</Thickness>
+
+    <!-- Column geometry. ColumnDefinition.MinWidth is a plain double, so these can be tokens;
+         the two star weights are GridLengths and are written inline below. -->
+    <x:Double x:Key="ChannelMinWidth">88</x:Double>
+    <x:Double x:Key="SessionMinWidth">88</x:Double>
+    <x:Double x:Key="ProjectWidth">88</x:Double>
+
+    <!-- Fixed, not Auto: a ComboBox measures the selected item only, so an Auto column would
+         re-lay the whole toolbar out every time the model changed. -->
+    <x:Double x:Key="ModelComboWidth">140</x:Double>
+
+    <!-- Fits the widest of the three things that share the cell: "Import video…",
+         "Cancel import", and the dot + 00:00:00 clock. Rounded up rather than fitted exactly:
+         a floor that is a few pixels short of the widest state reserves nothing. -->
+    <x:Double x:Key="TransportSlotWidth">120</x:Double>
+
+    <!-- Fits "Start recording" at FontSizeLg SemiBold, so "Starting…", "Stopping…" and "Stop"
+         cannot shrink the button out from under the pointer that just pressed it. -->
+    <x:Double x:Key="RecordMinWidth">160</x:Double>
+
+    <x:Double x:Key="ModelDotSize">6</x:Double>
+    <x:Double x:Key="RecordDotSize">9</x:Double>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Button.subtle, TextBox, ComboBox">
+      <Setter Property="Height" Value="{StaticResource RowControlHeight}" />
+    </Style>
+
+    <Style Selector="Button.icon">
+      <Setter Property="Width" Value="{StaticResource RowControlHeight}" />
+      <Setter Property="Height" Value="{StaticResource RowControlHeight}" />
+    </Style>
+
+    <!-- MinHeight as well as Height: Avalonia clamps a measured height up to MinHeight after
+         applying Height, so the 38 in App.axaml would win on its own. -->
+    <Style Selector="Button.record">
+      <Setter Property="Height" Value="{StaticResource RowControlHeight}" />
+      <Setter Property="MinHeight" Value="{StaticResource RowControlHeight}" />
+      <Setter Property="MinWidth" Value="{StaticResource RecordMinWidth}" />
+      <Setter Property="Padding" Value="{StaticResource PadRecord}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="toolbar">
+    <Grid Height="{StaticResource CaptureBarRowHeight}" ColumnSpacing="{StaticResource Space3}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.6*" MinWidth="{StaticResource ChannelMinWidth}" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="{StaticResource SessionMinWidth}" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Recording inputs are configured on their own page; this compact summary opens it. -->
+      <Button Grid.Column="0"
+              Classes="subtle"
+              VerticalAlignment="Center"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+              IsEnabled="{Binding CanEditSessionMetadata}"
+              Command="{Binding GoToPageCommand}"
+              CommandParameter="{x:Static vm:ShellPage.Inputs}"
+              ToolTip.Tip="Configure loopback and microphone inputs captured together">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource Space3}">
+          <Border Grid.Column="0" Classes="badge" Classes.loopback="True">
+            <TextBlock Text="INPUTS" />
+          </Border>
+          <TextBlock Grid.Column="1"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis"
+                     Text="{Binding Inputs.SummaryText}" />
+        </Grid>
+      </Button>
+
+      <Button Grid.Column="1"
+              Classes="icon"
+              VerticalAlignment="Center"
+              IsEnabled="{Binding CanEditSessionMetadata}"
+              Command="{Binding Inputs.RefreshCommand}"
+              ToolTip.Tip="Re-scan all configured inputs — devices come and go"
+              Content="&#x21BB;" />
+
+      <!-- ============ Pre-flight level meter ============
+           Well, LEDs, peak hold and readout are one component now; this view hands it the one
+           binding it needs. -->
+      <controls:LevelMeter Grid.Column="2"
+                           VerticalAlignment="Center"
+                           DataContext="{Binding Capture.Meter}" />
+
+      <!-- ============ Whisper model ============ -->
+      <StackPanel Grid.Column="3"
+                  Orientation="Horizontal"
+                  Spacing="{StaticResource Space2}"
+                  VerticalAlignment="Center">
+
+        <ComboBox Width="{StaticResource ModelComboWidth}"
+                  VerticalAlignment="Center"
+                  ItemsSource="{Binding Capture.Models}"
+                  SelectedItem="{Binding Capture.SelectedModel}"
+                  IsEnabled="{Binding CanEditSessionMetadata}"
+                  ToolTip.Tip="Which whisper weights decode this channel">
+          <!-- The closed box shows the dot and the name only. Repeating the per-item status here
+               ("not downloaded · 465 MB") squeezed the model's own name out of the control,
+               and StatusBarView already states it in full for the selected model. -->
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate DataType="vm:ModelOptionViewModel" x:DataType="vm:ModelOptionViewModel">
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
+                <Ellipse Width="{StaticResource ModelDotSize}" Height="{StaticResource ModelDotSize}"
+                         VerticalAlignment="Center"
+                         Fill="{DynamicResource SuccessBase}" IsVisible="{Binding IsDownloaded}" />
+                <Ellipse Width="{StaticResource ModelDotSize}" Height="{StaticResource ModelDotSize}"
+                         VerticalAlignment="Center"
+                         Fill="{DynamicResource TextMuted}" IsVisible="{Binding !IsDownloaded}" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
+          <ComboBox.ItemTemplate>
+            <DataTemplate DataType="vm:ModelOptionViewModel" x:DataType="vm:ModelOptionViewModel">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource Space3}">
+                <Ellipse Grid.Column="0"
+                         Width="{StaticResource ModelDotSize}" Height="{StaticResource ModelDotSize}"
+                         VerticalAlignment="Center"
+                         Fill="{DynamicResource SuccessBase}" IsVisible="{Binding IsDownloaded}" />
+                <Ellipse Grid.Column="0"
+                         Width="{StaticResource ModelDotSize}" Height="{StaticResource ModelDotSize}"
+                         VerticalAlignment="Center"
+                         Fill="{DynamicResource TextMuted}" IsVisible="{Binding !IsDownloaded}" />
+                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="caption" Text="{Binding StatusText}" VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <!-- Download and Cancel share one cell, so they overlay instead of stacking: the swap
+             changes neither the row's height nor its width. Progress is reported by the status
+             bar, which is where every other background operation reports. -->
+        <Panel VerticalAlignment="Center">
+          <Button Classes="icon"
+                  Content="&#x2193;"
+                  Command="{Binding Capture.DownloadModelCommand}"
+                  IsEnabled="{Binding CanEditSessionMetadata}"
+                  IsVisible="{Binding !Capture.IsDownloading}"
+                  ToolTip.Tip="Fetch the ggml weights for the selected model" />
+          <Button Classes="icon"
+                  Content="&#x2715;"
+                  Command="{Binding Capture.DownloadModelCancelCommand}"
+                  IsEnabled="{Binding CanEditSessionMetadata}"
+                  IsVisible="{Binding Capture.IsDownloading}"
+                  ToolTip.Tip="Cancel the download" />
+        </Panel>
+      </StackPanel>
+
+      <!-- ============ Session metadata ============
+           Disabled, not hidden, while rolling: the height must not move, and you should still
+           be able to read what the session in progress is called. -->
+      <TextBox Grid.Column="4"
+               VerticalAlignment="Center"
+               PlaceholderText="Session title"
+               IsEnabled="{Binding CanEditSessionMetadata}"
+               Text="{Binding Capture.SessionTitle}"
+               ToolTip.Tip="Names the session folder and the notes.md heading" />
+
+      <TextBox Grid.Column="5"
+               Width="{StaticResource ProjectWidth}"
+               VerticalAlignment="Center"
+               PlaceholderText="Project"
+               IsEnabled="{Binding CanEditSessionMetadata}"
+               Text="{Binding Capture.Project}"
+               ToolTip.Tip="Groups sessions — becomes the folder under the notes root" />
+
+      <!-- ============ Transport / recorded-media input ============
+           One fixed-width cell for both. Recording and importing are mutually exclusive by
+           construction (CanToggleRecording refuses while an import is in flight,
+           CanImportVideo refuses while recording), so the elapsed clock takes the cell the
+           import button was using instead of appearing beside it — which is what used to slide
+           the record button 83px sideways at the instant it was clicked.
+
+           The picker stays in this view because StorageProvider belongs to the TopLevel; the
+           selected local path is handed straight back to the view model. -->
+      <Grid Grid.Column="6"
+            MinWidth="{StaticResource TransportSlotWidth}"
+            VerticalAlignment="Center">
+        <Panel IsVisible="{Binding !IsRecording}">
+          <Button Classes="subtle"
+                  Content="Import video…"
+                  IsVisible="{Binding !IsImportingVideo}"
+                  IsEnabled="{Binding CanImportVideo}"
+                  Click="OnImportVideoClick"
+                  ToolTip.Tip="Choose a recorded meeting and transcribe its first audio stream" />
+          <Button Classes="subtle"
+                  Content="Cancel import"
+                  IsVisible="{Binding IsImportingVideo}"
+                  Command="{Binding CancelVideoImportCommand}"
+                  ToolTip.Tip="Stop after preserving everything transcribed so far" />
+        </Panel>
+
+        <StackPanel Orientation="Horizontal"
+                    Spacing="{StaticResource Space3}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding IsRecording}">
+          <Ellipse Classes="pulse"
+                   Width="{StaticResource RecordDotSize}"
+                   Height="{StaticResource RecordDotSize}"
+                   VerticalAlignment="Center"
+                   Fill="{DynamicResource DangerBase}"
+                   ToolTip.Tip="{Binding Capture.RecordingStateText}" />
+          <TextBlock Classes="mono"
+                     VerticalAlignment="Center"
+                     FontSize="{StaticResource FontSizeLg}"
+                     TextTrimming="None"
+                     Text="{Binding Capture.ElapsedText}" />
+        </StackPanel>
+      </Grid>
+
+      <Button Grid.Column="7"
+              Classes="record"
+              Classes.rolling="{Binding IsRecording}"
+              VerticalAlignment="Center"
+              Content="{Binding RecordButtonText}"
+              Command="{Binding ToggleRecordingCommand}"
+              ToolTip.Tip="{Binding RecordButtonHint}" />
+    </Grid>
+  </Border>
+</UserControl>

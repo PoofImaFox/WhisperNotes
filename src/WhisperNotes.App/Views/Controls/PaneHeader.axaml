@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:PaneHeader}" TargetType="ctl:PaneHeader">
+      <Setter Property="Spacing" Value="{DynamicResource Space2}" />
+      <Setter Property="Margin" Value="{DynamicResource PadPaneHeader}" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:PaneHeader">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{TemplateBinding Spacing}">
+            <TextBlock Grid.Column="0"
+                       Classes="label"
+                       VerticalAlignment="Center"
+                       Text="{TemplateBinding Header}" />
+            <ContentPresenter Grid.Column="1"
+                              Name="PART_ContentPresenter"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

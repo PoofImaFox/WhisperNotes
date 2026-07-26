@@ -1,0 +1,93 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:StatusDot}" TargetType="ctl:StatusDot">
+
+      <!--
+        Alignment is a DEFAULT, not a decision. Two call sites in the nav rail pin their dot to
+        the top-right corner of a Grid cell with their own Margin and alignments; a local value
+        beats a theme setter, so those survive untouched.
+      -->
+      <Setter Property="Size" Value="{DynamicResource DotSize}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:StatusDot">
+          <Ellipse Name="PART_Dot"
+                   Width="{TemplateBinding Size}"
+                   Height="{TemplateBinding Size}" />
+        </ControlTemplate>
+      </Setter>
+
+      <!-- ON: the colour the dot means when it means something. -->
+      <Style Selector="^[Kind=Muted] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource TextMuted}" />
+      </Style>
+      <Style Selector="^[Kind=Ok] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource SuccessBase}" />
+      </Style>
+      <Style Selector="^[Kind=Warn] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource WarningBase}" />
+      </Style>
+      <Style Selector="^[Kind=Danger] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource DangerBase}" />
+      </Style>
+      <Style Selector="^[Kind=Info] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource InfoBase}" />
+      </Style>
+      <Style Selector="^[Kind=Ai] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource AiAccent}" />
+      </Style>
+
+      <!--
+        OFF. Declared after the ON block so it wins while IsOn is false. This half is what
+        replaces the paired-Ellipse idiom: two elements with opposite IsVisible bindings, four
+        attributes each, repeated in both halves of a ComboBox's own templates — sixteen lines to
+        say "a dot whose colour depends on a bool", and a drift risk of exactly one pixel between
+        the closed box and its dropdown rows.
+      -->
+      <Style Selector="^[IsOn=False][OffKind=Muted] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource TextMuted}" />
+      </Style>
+      <Style Selector="^[IsOn=False][OffKind=Ok] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource SuccessBase}" />
+      </Style>
+      <Style Selector="^[IsOn=False][OffKind=Warn] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource WarningBase}" />
+      </Style>
+      <Style Selector="^[IsOn=False][OffKind=Danger] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource DangerBase}" />
+      </Style>
+      <Style Selector="^[IsOn=False][OffKind=Info] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource InfoBase}" />
+      </Style>
+      <Style Selector="^[IsOn=False][OffKind=Ai] /template/ Ellipse#PART_Dot">
+        <Setter Property="Fill" Value="{DynamicResource AiAccent}" />
+      </Style>
+
+      <!--
+        "Happening right now". The same 1.3s breath the loose Ellipse.pulse style in App.axaml
+        carries; that style stays there until its last two direct consumers migrate onto this
+        control, at which point it can go.
+      -->
+      <Style Selector="^[Pulse=True] /template/ Ellipse#PART_Dot">
+        <Style.Animations>
+          <Animation Duration="0:0:1.3" IterationCount="INFINITE">
+            <KeyFrame Cue="0%">
+              <Setter Property="Opacity" Value="1" />
+            </KeyFrame>
+            <KeyFrame Cue="50%">
+              <Setter Property="Opacity" Value="0.2" />
+            </KeyFrame>
+            <KeyFrame Cue="100%">
+              <Setter Property="Opacity" Value="1" />
+            </KeyFrame>
+          </Animation>
+        </Style.Animations>
+      </Style>
+
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

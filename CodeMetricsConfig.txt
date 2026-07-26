@@ -1,0 +1,37 @@
+# Thresholds for the CA15xx code-metrics rules (CA1501, CA1502, CA1505, CA1506).
+#
+# This file MUST be named exactly "CodeMetricsConfig.txt" - the analyzer matches on the
+# file name of the AdditionalFiles item, not on item metadata. It is wired up for every
+# project by the <AdditionalFiles> entry in Directory.Build.props.
+#
+# The .editorconfig key `dotnet_code_quality.CA1502.threshold` does NOT exist; setting it
+# has no effect and the rule silently keeps its default of 25. Verified empirically
+# against the analyzers in SDK 10.0.301.
+#
+# Format:  <RuleId>: <threshold>
+# Optional symbol-kind scoping: <RuleId>(Method|NamedType|Namespace|Assembly): <threshold>
+# A malformed entry is reported as CA1509 rather than silently ignored.
+#
+# Semantics (measured, not assumed):
+#   CA1501 / CA1502 / CA1506 fire when the value is STRICTLY GREATER than the threshold.
+#   CA1505 is inverted: it fires when the maintainability index is STRICTLY LESS THAN it.
+
+# ---- Cyclomatic complexity -------------------------------------------------------------
+# 15 means "a method may have a complexity of at most 15"; the first value that reports
+# is 16. Confirmed with a probe containing methods of complexity 11..21: complexity 15
+# stayed silent, complexity 16 reported.
+CA1502: 15
+
+# ---- Maintainability index -------------------------------------------------------------
+# Microsoft's bands: 0-9 red, 10-19 yellow, 20-100 green. The analyzer default is 10,
+# which only trips on already-catastrophic code. 20 puts the gate on the green/yellow
+# boundary instead, so "moderate maintainability" is a failure rather than a shrug.
+# Costs nothing today: the worst maintainability index anywhere in the repo is 32.
+CA1505: 20
+
+# ---- Depth of inheritance / class coupling ----------------------------------------------
+# Left at the analyzer defaults (CA1501 > 5, CA1506 > 95 for types / > 40 for members).
+# CA1501 is switched off for src/WhisperNotes.App/Views in .editorconfig, where the depth
+# comes entirely from Avalonia's own control hierarchy and cannot be refactored away.
+# CA1501: 5
+# CA1506: 95

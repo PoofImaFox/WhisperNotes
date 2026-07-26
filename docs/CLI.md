@@ -1,4 +1,4 @@
-# `notescribe` — command line reference
+# `whispernotes` — command line reference
 
 Everything the UI does, headlessly. Useful for batch-transcribing recordings and for running a
 capture session from a terminal without the window in the way.
@@ -6,12 +6,12 @@ capture session from a terminal without the window in the way.
 All commands write into the same organised notes tree the UI reads, so a session transcribed
 from a recording shows up in the UI alongside live ones.
 
-## `notescribe devices`
+## `whispernotes devices`
 
 Lists the audio endpoints you can capture, with the ids to pass to `--channel`.
 
 ```
-$ notescribe devices
+$ whispernotes devices
 
 LOOPBACK (system audio — capture what you HEAR, e.g. Teams)
   * speakers-realtek-hd    Speakers (Realtek High Definition Audio)   48000 Hz / 2ch   [default]
@@ -34,13 +34,13 @@ suffix (`-2`, `-3`) disambiguates endpoints whose names collide.
 
 Add `--verbose` to also print each endpoint's raw id.
 
-## `notescribe listen`
+## `whispernotes listen`
 
 Live capture and dictation. Runs until Ctrl+C, then finalizes the session and writes `notes.md`.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `-c, --channel <id>` | last used, else default render loopback | Endpoint from `notescribe devices`. |
+| `-c, --channel <id>` | last used, else default render loopback | Endpoint from `whispernotes devices`. |
 | `-t, --title <text>` | local timestamp | Session title; also the folder name. |
 | `-p, --project <name>` | from settings | Groups the session into a project folder. |
 | `-m, --model <size>` | `base` | `tiny`\|`base`\|`small`\|`medium`\|`large-v3`\|`large-v3-turbo` |
@@ -49,21 +49,24 @@ Live capture and dictation. Runs until Ctrl+C, then finalizes the session and wr
 | `--prompt <text>` | from settings | Vocabulary hint — client names, acronyms. |
 | `--keep-audio` | off | Also save the captured WAV next to the notes. |
 | `--threads <n>` | CPU count, capped | Decoder threads. |
+| `--diarize` | from settings (on) | Label each line with the speaker who said it. |
+| `--no-diarize` | — | Skip speaker attribution, even if settings enable it. |
+| `--max-speakers <n>` | `8` | Ceiling on how many voices may be reported. |
 | `--quiet` | off | Suppress the live transcript echo; only print the final path. |
 
 ```
-$ notescribe listen --channel speakers-realtek-hd --project "Acme Corp" --title "Sprint review" --model small
+$ whispernotes listen --channel speakers-realtek-hd --project "Acme Corp" --title "Sprint review" --model small
 
   model    small (already downloaded)
   channel  Speakers (Realtek High Definition Audio) [loopback]
-  session  ~/Documents/NoteScribe/Acme Corp/2026/2026-07-25/143022-sprint-review
+  session  ~/Documents/WhisperNotes/Acme Corp/2026/2026-07-25/143022-sprint-review
   Ctrl+C to stop.
 
 [00:00:04] Right, let's get started. Dan, where are we on the firewall change?
 [00:00:11] Still blocked. I've chased the network team twice this week.
 ^C
   finalized  1 min 12 sec, 18 entries
-  notes      ~/Documents/NoteScribe/Acme Corp/2026/2026-07-25/143022-sprint-review/notes.md
+  notes      ~/Documents/WhisperNotes/Acme Corp/2026/2026-07-25/143022-sprint-review/notes.md
 ```
 
 Ctrl+C is the normal way to end a session, not an abort: the first press stops the capture, lets
@@ -77,7 +80,17 @@ table above reads on the next run. Nothing else about the invocation is persiste
 With `--keep-audio` the captured WAV is written to `<session>/audio/session.wav` as 16 kHz mono
 16-bit PCM, which is the format `transcribe` can re-read directly.
 
-## `notescribe transcribe`
+**Speakers.** Diarization works out who spoke when. It runs offline, from a small voice-embedding
+model that turns each stretch of speech into a vector and groups the stretches that sound like the
+same person. What comes out is `Speaker 1`, `Speaker 2` and so on — never names. The model can tell
+two voices apart; it has no way to know whose they are, and a guessed name is worse than an honest
+number. Putting real names to them is a human's job, done afterwards in the notes. `--max-speakers`
+caps how many the clustering may report, and a recording with only one voice in it is left
+unlabelled, since prefixing every line of your own dictation with `Speaker 1:` is clutter in
+exchange for nothing. Tune the sensitivity with `Diarization.MergeThreshold` — raise it to merge
+more, lower it to split more.
+
+## `whispernotes transcribe`
 
 **This is the `--video` flag.** Converts a video (or any media file) to a 16 kHz mono audio
 channel with ffmpeg, then runs the same local Whisper over it.
@@ -95,21 +108,24 @@ channel with ffmpeg, then runs the same local Whisper over it.
 | `--prompt <text>` | from settings | Vocabulary hint. |
 | `--keep-audio` | off | Keep the extracted WAV instead of deleting it. |
 | `--threads <n>` | CPU count, capped | Decoder threads. |
+| `--diarize` | from settings (on) | As above. |
+| `--no-diarize` | — | As above. |
+| `--max-speakers <n>` | `8` | As above. |
 | `-o, --output <dir>` | notes root | Override where this session is written. |
 
 ```
-$ notescribe transcribe --video "Sprint review-20260725.mp4" --list-streams
+$ whispernotes transcribe --video "Sprint review-20260725.mp4" --list-streams
 
   #1 aac 2ch 48000Hz [eng] "Mixed audio"
   #2 aac 1ch 48000Hz [und] "Dan Whitfield"
 
-$ notescribe transcribe --video "Sprint review-20260725.mp4" --stream 2 --project "Acme Corp" --model small
+$ whispernotes transcribe --video "Sprint review-20260725.mp4" --stream 2 --project "Acme Corp" --model small
 
   model         small (already downloaded)
-  session       ~/Documents/NoteScribe/Acme Corp/2026/2026-07-25/143022-sprint-review-20260725
+  session       ~/Documents/WhisperNotes/Acme Corp/2026/2026-07-25/143022-sprint-review-20260725
   extracting    ██████████████████████ 100%   (ffmpeg, stream #2 -> 16 kHz mono)
   transcribing  ████████████░░░░░░░░░░  58%   00:12:31 / 00:21:40
-  notes         ~/Documents/NoteScribe/Acme Corp/2026/2026-07-25/143022-sprint-review-20260725/notes.md
+  notes         ~/Documents/WhisperNotes/Acme Corp/2026/2026-07-25/143022-sprint-review-20260725/notes.md
 ```
 
 `--stream` takes the ffmpeg stream index printed by `--list-streams`, which counts every stream in
@@ -125,7 +141,7 @@ session's tree, overriding the global `--notes-root`.
 Chunks that hold nothing but digital silence are not sent to the decoder. Whisper reliably invents
 captions for silence, and an invented line in a billable record is worse than a missing one.
 
-## `notescribe sessions`
+## `whispernotes sessions`
 
 Lists past sessions from the notes tree.
 
@@ -143,7 +159,34 @@ Each session prints one summary line — start, project, title, duration, entry 
 the path to its `notes.md`. `--json` emits the same records with the session id, tags, model,
 source description and the transcript path as well.
 
-## `notescribe models`
+## `whispernotes export`
+
+Exports authored notes from the **Notes** page. Markdown, HTML, and PDF export one note selected by
+its id or exact title. Obsidian exports the whole authored-note library as a ZIP of UTF-8 Markdown
+files grouped by project.
+
+```powershell
+# One note. The extension and a safe filename are chosen automatically.
+whispernotes export markdown --document "Sprint review"
+whispernotes export html --document "Sprint review" --output .\exports
+whispernotes export pdf --document "Sprint review" --output .\exports\sprint-review.pdf
+
+# Every authored note, ready to extract and open/copy into an Obsidian vault.
+whispernotes export obsidian --output .\exports\whispernotes-obsidian.zip
+```
+
+| Argument / option | Meaning |
+|---|---|
+| `format` | `markdown`, `html`, `pdf`, or `obsidian`. |
+| `-d, --document <id-or-title>` | Required for the single-note formats; exact titles are case-insensitive. |
+| `-o, --output <path>` | Destination file or an existing directory; defaults to the current directory. |
+| `--overwrite` | Explicitly replace an existing destination. Without it, export refuses to clobber a file. |
+
+If more than one note has the requested title, the command prints the ids to choose from. An
+Obsidian export ignores the current UI search and always includes every authored note. Extract the
+ZIP, then open that folder as a vault or move its project folders into an existing vault.
+
+## `whispernotes models`
 
 | Subcommand | Meaning |
 |---|---|
@@ -154,7 +197,7 @@ source description and the transcript path as well.
 Pre-downloading matters: the first `listen` on an un-fetched `medium` would otherwise stall for
 a 1.5 GB download at the exact moment your meeting starts.
 
-## `notescribe config`
+## `whispernotes config`
 
 | Subcommand | Meaning |
 |---|---|
@@ -165,7 +208,10 @@ a 1.5 GB download at the exact moment your meeting starts.
 Keys, matched case-insensitively: `NotesRoot`, `ModelsRoot`, `Model`, `Language`, `Threads`,
 `LastChannelId`, `DefaultProject`, `InitialPrompt`, `KeepSessionAudio`, `FfmpegPath`,
 `Chunking.MinChunkSeconds`, `Chunking.MaxChunkSeconds`, `Chunking.SilenceMilliseconds`,
-`Chunking.SilenceThreshold`. Passing an empty value clears an optional setting back to its default.
+`Chunking.SilenceThreshold`, `Diarization.Enabled`, `Diarization.MaxSpeakers`,
+`Diarization.MergeThreshold`, `Diarization.MinObservationSeconds`,
+`Diarization.MaxObservationSeconds`. Passing an empty value clears an optional setting back to its
+default.
 
 `config show` prints the *effective* settings — the file merged with this invocation's global
 options. `config set` always writes the file itself, never the merged view.

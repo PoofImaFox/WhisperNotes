@@ -1,0 +1,37 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:LabeledField}" TargetType="ctl:LabeledField">
+      <Setter Property="Spacing" Value="{DynamicResource Space2}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:LabeledField">
+          <!--
+            A StackPanel skips invisible children entirely, spacing included, so a field with no
+            caption or no help text costs nothing rather than leaving a gap where the missing
+            element would have been.
+          -->
+          <StackPanel Spacing="{TemplateBinding Spacing}">
+            <TextBlock Classes="caption"
+                       Text="{TemplateBinding Header}"
+                       IsVisible="{TemplateBinding Header, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+            <TextBlock Classes="caption"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       Text="{TemplateBinding HelpText}"
+                       IsVisible="{TemplateBinding HelpText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

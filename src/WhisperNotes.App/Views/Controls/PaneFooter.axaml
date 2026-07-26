@@ -1,0 +1,37 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:PaneFooter}" TargetType="ctl:PaneFooter">
+      <Setter Property="Spacing" Value="{DynamicResource Space2}" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:PaneFooter">
+          <Border BorderBrush="{DynamicResource BorderSubtle}"
+                  BorderThickness="0,1,0,0"
+                  Padding="{DynamicResource PadCard}">
+            <StackPanel Spacing="{TemplateBinding Spacing}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space2}">
+                <TextBlock Grid.Column="0"
+                           Classes="caption"
+                           VerticalAlignment="Center"
+                           Text="{TemplateBinding Summary}" />
+                <ContentPresenter Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Content="{TemplateBinding Actions}"
+                                  IsVisible="{TemplateBinding Actions, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              </Grid>
+
+              <!-- Anything stacked under the summary row — the notes library's export block is
+                   the only current example. Hidden when empty so it costs no spacing. -->
+              <ContentPresenter Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                IsVisible="{TemplateBinding Content, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

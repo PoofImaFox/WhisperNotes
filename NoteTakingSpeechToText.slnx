@@ -1,7 +1,10 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/NoteScribe.App/NoteScribe.App.csproj" />
-    <Project Path="src/NoteScribe.Cli/NoteScribe.Cli.csproj" />
-    <Project Path="src/NoteScribe.Core/NoteScribe.Core.csproj" />
+    <Project Path="src/WhisperNotes.App/WhisperNotes.App.csproj" />
+    <Project Path="src/WhisperNotes.Cli/WhisperNotes.Cli.csproj" />
+    <Project Path="src/WhisperNotes.Core/WhisperNotes.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WhisperNotes.Core.Tests/WhisperNotes.Core.Tests.csproj" />
   </Folder>
 </Solution>

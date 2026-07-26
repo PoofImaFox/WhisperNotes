@@ -1,0 +1,34 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    ============================================================================
+    The shared component library — one include for App.axaml to carry.
+
+    Two mechanisms only, chosen by the same rule every time:
+
+      ControlTheme   the repeat needs values from its call site, so it needs
+                     typed properties. StatusDot, Icon, LabeledField, EmptyState,
+                     InlineTextPrompt, InlineProgress, PaneHeader, PaneFooter.
+
+      Style          the repeat is the same handful of attributes every time and
+                     carries nothing from the call site. Callouts, wells, badge
+                     modifiers, the separator, the action row, the toast chrome.
+                     ComponentStyles.axaml.
+
+    Order matters twice: Icons before Icon so the glyphs exist when the control
+    theme is read, and ComponentStyles last so it can refine the base sheet.
+    ============================================================================
+  -->
+  <StyleInclude Source="/Views/Controls/Icons.axaml" />
+  <StyleInclude Source="/Views/Controls/Icon.axaml" />
+  <StyleInclude Source="/Views/Controls/StatusDot.axaml" />
+  <StyleInclude Source="/Views/Controls/LabeledField.axaml" />
+  <StyleInclude Source="/Views/Controls/EmptyState.axaml" />
+  <StyleInclude Source="/Views/Controls/InlineTextPrompt.axaml" />
+  <StyleInclude Source="/Views/Controls/InlineProgress.axaml" />
+  <StyleInclude Source="/Views/Controls/PaneHeader.axaml" />
+  <StyleInclude Source="/Views/Controls/PaneFooter.axaml" />
+  <StyleInclude Source="/Views/Controls/NotificationTemplates.axaml" />
+  <StyleInclude Source="/Views/Controls/ComponentStyles.axaml" />
+</Styles>

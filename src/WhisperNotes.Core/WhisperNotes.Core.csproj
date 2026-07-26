@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>WhisperNotes.Core</RootNamespace>
+    <AssemblyName>WhisperNotes.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+    <PackageReference Include="NAudio.Core" />
+    <PackageReference Include="NAudio.Wasapi" />
+    <PackageReference Include="Anthropic" />
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="PDFsharp-GDI" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WhisperNotes.Core.Tests" />
+  </ItemGroup>
+
+</Project>

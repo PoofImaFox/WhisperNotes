@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             xmlns:dd="using:WhisperNotes.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.StatusBarView"
+             x:DataType="vm:MainWindowViewModel"
+             d:DataContext="{x:Static dd:DesignTime.Main}">
+
+  <UserControl.Resources>
+    <!-- One geometry for every in-flight operation reported in column 3. -->
+    <x:Double x:Key="ProgressBarWidth">88</x:Double>
+    <x:Double x:Key="ProgressBarHeight">4</x:Double>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="StackPanel.progress">
+      <Setter Property="Orientation" Value="Horizontal" />
+      <Setter Property="Spacing" Value="{StaticResource Space3}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- MinWidth as well as Width: Fluent's ProgressBar theme carries a MinWidth of its own,
+         and MinWidth beats Width in Avalonia's measure clamp — leave it and the bar swells to
+         the theme's width, swallowing the caption beside it. -->
+    <Style Selector="StackPanel.progress > ProgressBar">
+      <Setter Property="Width" Value="{StaticResource ProgressBarWidth}" />
+      <Setter Property="MinWidth" Value="{StaticResource ProgressBarWidth}" />
+      <Setter Property="Height" Value="{StaticResource ProgressBarHeight}" />
+      <Setter Property="Minimum" Value="0" />
+      <Setter Property="Maximum" Value="1" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="{StaticResource SurfaceBase}"
+          BorderBrush="{StaticResource BorderSubtle}"
+          BorderThickness="0,1,0,0"
+          Padding="{StaticResource PadTight}">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="{StaticResource Space4}">
+
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource SuccessBase}" IsVisible="{Binding Capture.ModelReady}" />
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource WarningBase}" IsVisible="{Binding !Capture.ModelReady}" />
+        <TextBlock Classes="caption" Text="{Binding Capture.ModelStatusText}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{StaticResource Space2}" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                 Fill="{StaticResource AccentBase}" IsVisible="{Binding Capture.HasChannel}" />
+        <TextBlock Classes="caption" MaxWidth="320"
+                   Text="{Binding Capture.ChannelDetailText}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <Button Grid.Column="2"
+              Classes="ghost"
+              Padding="{StaticResource PadTight}"
+              MinHeight="20"
+              VerticalAlignment="Center"
+              Command="{Binding OpenNotesRootCommand}"
+              ToolTip.Tip="Open the notes root in Explorer">
+        <TextBlock Text="{Binding NotesRootPath}" MaxWidth="360" />
+      </Button>
+
+      <!-- Background operations report here, one at a time and in the same shape: a video
+           import (which locks out everything else) shadows a model download, which shadows the
+           idle status line. The download used to live under the capture bar's model picker, in
+           a permanently reserved 14px strip that centred the picker 8px above every other
+           control on that row; a status bar is a fixed-height sibling of the transcript, so it
+           can carry a progress row without ever resizing the transcript's viewport. -->
+      <Grid Grid.Column="3" VerticalAlignment="Center">
+        <StackPanel Classes="progress" IsVisible="{Binding IsImportingVideo}">
+          <ProgressBar Value="{Binding ImportVideoProgress}"
+                       IsIndeterminate="{Binding IsImportVideoProgressIndeterminate}" />
+          <TextBlock Classes="caption"
+                     VerticalAlignment="Center"
+                     Text="{Binding ImportVideoStatusText}" />
+        </StackPanel>
+
+        <Panel IsVisible="{Binding !IsImportingVideo}">
+          <StackPanel Classes="progress" IsVisible="{Binding Capture.IsDownloading}">
+            <ProgressBar Value="{Binding Capture.DownloadFraction}"
+                         IsIndeterminate="{Binding Capture.IsDownloadIndeterminate}" />
+            <TextBlock Classes="caption"
+                       VerticalAlignment="Center"
+                       Text="{Binding Capture.DownloadStatusText}"
+                       ToolTip.Tip="{Binding Capture.DownloadStatusText}" />
+          </StackPanel>
+
+          <TextBlock Classes="caption"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Left"
+                     IsVisible="{Binding !Capture.IsDownloading}"
+                     Text="{Binding StatusMessage}" />
+        </Panel>
+      </Grid>
+
+      <TextBlock Grid.Column="4"
+                 Classes="caption"
+                 VerticalAlignment="Center"
+                 MaxWidth="300"
+                 Text="{Binding FfmpegStatusText}" />
+    </Grid>
+  </Border>
+</UserControl>

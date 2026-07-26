@@ -1,0 +1,154 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ctl="using:WhisperNotes.App.Views.Controls"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             xmlns:dd="using:WhisperNotes.App.DesignData"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.InputSettingsView"
+             x:DataType="vm:InputSettingsViewModel"
+             d:DataContext="{x:Static dd:InputSettingsDesignData.ViewModel}">
+
+  <Grid Background="{DynamicResource SurfaceBase}" RowDefinitions="Auto,*">
+    <Border Grid.Row="0"
+            Background="{DynamicResource SurfaceRaised}"
+            BorderBrush="{DynamicResource BorderDefault}"
+            BorderThickness="0,0,0,1"
+            Padding="{DynamicResource PadPane}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space4}">
+        <StackPanel Grid.Column="0" Spacing="{DynamicResource Space2}">
+          <TextBlock Classes="h1" Text="Inputs" />
+          <TextBlock Classes="muted"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     Text="Choose every audio source to capture. Enabled sources are transcribed in parallel into the same session." />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Spacing="{DynamicResource Space2}">
+          <Button Classes="subtle"
+                  Content="Refresh devices"
+                  Command="{Binding RefreshCommand}" />
+          <Button Classes="accent"
+                  Content="Add input"
+                  Command="{Binding AddSourceCommand}"
+                  IsEnabled="{Binding HasAvailableChannels}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <StackPanel MaxWidth="920"
+                  HorizontalAlignment="Stretch"
+                  Margin="{DynamicResource PadPane}"
+                  Spacing="{DynamicResource Space4}">
+
+        <Border Classes="card" Padding="{DynamicResource PadCard}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource Space3}">
+            <ctl:StatusDot Grid.Column="0" Kind="Ok" Size="{DynamicResource DotSizeLg}" />
+            <StackPanel Grid.Column="1" Spacing="{DynamicResource Space1}">
+              <TextBlock Classes="label" Text="{Binding SummaryText}" />
+              <TextBlock Classes="caption"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         Text="Loopback hears system playback such as Teams. Microphone captures your local voice or another physical input." />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Classes="callout warning" IsVisible="{Binding HasMissingEnabledSources}">
+          <TextBlock Text="One or more enabled devices are unavailable. Reconnect them, choose a replacement, or disable those inputs before recording." />
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding Sources}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="{DynamicResource Space3}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:InputSourceViewModel">
+              <Border Classes="card" Padding="{DynamicResource PadPane}">
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="{DynamicResource Space3}"
+                      RowSpacing="{DynamicResource Space3}">
+                  <CheckBox Grid.Row="0"
+                            Grid.Column="0"
+                            Grid.RowSpan="2"
+                            VerticalAlignment="Top"
+                            Margin="0,5,0,0"
+                            IsChecked="{Binding IsEnabled}"
+                            ToolTip.Tip="Include this source in the next recording"
+                            AutomationProperties.Name="Enable input" />
+
+                  <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource Space3}">
+                    <ctl:LabeledField Grid.Column="0" Header="Display name">
+                      <TextBox Text="{Binding DisplayName}"
+                               PlaceholderText="e.g. Room microphone"
+                               AutomationProperties.Name="Input display name" />
+                    </ctl:LabeledField>
+
+                    <ctl:LabeledField Grid.Column="1" Header="Audio device">
+                      <ComboBox ItemsSource="{Binding AvailableChannels}"
+                                SelectedItem="{Binding SelectedChannel}"
+                                HorizontalAlignment="Stretch"
+                                PlaceholderText="Choose a device"
+                                AutomationProperties.Name="Audio device">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ChannelOptionViewModel">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space3}">
+                              <TextBlock Grid.Column="0" Text="{Binding Summary}" />
+                              <TextBlock Grid.Column="1" Classes="caption" Text="{Binding KindLabel}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </ctl:LabeledField>
+                  </Grid>
+
+                  <Button Grid.Row="0"
+                          Grid.Column="2"
+                          Classes="ghost"
+                          Content="Remove"
+                          Command="{Binding RemoveCommand}"
+                          Foreground="{DynamicResource DangerBase}"
+                          AutomationProperties.Name="Remove input" />
+
+                  <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*"
+                        ColumnSpacing="{DynamicResource Space3}">
+                    <Border Grid.Column="0" Classes="badge accent">
+                      <TextBlock Text="{Binding KindLabel}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="{DynamicResource Space1}">
+                      <TextBlock Classes="caption"
+                                 Text="{Binding AvailabilityText}"
+                                 Foreground="{DynamicResource WarningBase}"
+                                 TextWrapping="Wrap"
+                                 TextTrimming="None" />
+                      <TextBlock Classes="caption mono"
+                                 Text="{Binding DeviceId}"
+                                 TextWrapping="NoWrap"
+                                 ToolTip.Tip="{Binding DeviceId}" />
+                    </StackPanel>
+                  </Grid>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Classes="card"
+                Padding="{DynamicResource PadPane}"
+                IsVisible="{Binding HasNoSources}">
+          <ctl:EmptyState Heading="No inputs configured"
+                          Body="Connect or enable an audio endpoint, refresh the device list, then add it here." />
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

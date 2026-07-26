@@ -1,0 +1,46 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:Icon}" TargetType="ctl:Icon">
+      <Setter Property="Size" Value="{DynamicResource IconSize}" />
+      <Setter Property="StrokeThickness" Value="{DynamicResource IconStrokeThickness}" />
+      <Setter Property="Stroke" Value="{DynamicResource TextSecondary}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:Icon">
+          <!--
+            Two nested boxes, and both are load-bearing.
+
+            The inner Path is pinned to the authoring grid with Stretch="None", so a glyph draws
+            at the coordinates it was drawn at and every glyph in the set keeps its relative
+            weight — Stretch="Uniform" on the Path itself would blow each glyph's own bounding
+            box up to fill the icon, making a compact "x" render twice the size of a tall
+            document.
+
+            The Viewbox then scales that whole 16x16 grid to Size and centres it. Centring is the
+            entire point of the exercise: the text glyphs this replaces each fell back to a
+            different system font and landed at a different height inside the same button.
+          -->
+          <Viewbox Width="{TemplateBinding Size}"
+                   Height="{TemplateBinding Size}"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center">
+            <Path Width="{DynamicResource IconGrid}"
+                  Height="{DynamicResource IconGrid}"
+                  Stretch="None"
+                  Data="{TemplateBinding Data}"
+                  Stroke="{TemplateBinding Stroke}"
+                  StrokeThickness="{TemplateBinding StrokeThickness}"
+                  StrokeLineCap="Round"
+                  StrokeJoin="Round" />
+          </Viewbox>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

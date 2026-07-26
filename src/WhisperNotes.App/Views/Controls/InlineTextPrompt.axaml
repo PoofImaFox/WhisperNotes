@@ -1,0 +1,40 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:InlineTextPrompt}" TargetType="ctl:InlineTextPrompt">
+      <Setter Property="Spacing" Value="{DynamicResource Space2}" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:InlineTextPrompt">
+          <StackPanel Spacing="{TemplateBinding Spacing}">
+            <TextBlock Classes="caption"
+                       Text="{TemplateBinding Label}"
+                       IsVisible="{TemplateBinding Label, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+            <!--
+              AcceptsReturn stays false so Enter is not swallowed here: the control's own
+              OnKeyDown is what runs the commit command, because a KeyBinding declared inside a
+              ControlTemplate is not part of the template's visual tree and TemplateBinding never
+              reaches it.
+            -->
+            <TextBox Name="PART_Field"
+                     Text="{TemplateBinding Text, Mode=TwoWay}"
+                     PlaceholderText="{TemplateBinding Placeholder}"
+                     AcceptsReturn="False"
+                     AutomationProperties.Name="{TemplateBinding AccessibleName}" />
+
+            <StackPanel Classes="actions">
+              <Button Classes="accent"
+                      Content="{TemplateBinding CommitLabel}"
+                      Command="{TemplateBinding CommitCommand}" />
+              <Button Classes="subtle"
+                      Content="{TemplateBinding CancelLabel}"
+                      Command="{TemplateBinding CancelCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>

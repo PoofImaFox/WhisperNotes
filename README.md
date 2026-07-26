@@ -1,4 +1,4 @@
-# NoteScribe
+# WhisperNotes
 
 Live dictation and meeting notes from any Windows audio channel, using local Whisper.
 
@@ -25,37 +25,52 @@ provider.
 dotnet build
 
 # See what you can listen to
-dotnet run --project src/NoteScribe.Cli -- devices
+dotnet run --project src/WhisperNotes.Cli -- devices
 
 # Pre-fetch the weights (do this BEFORE a meeting, not during one)
-dotnet run --project src/NoteScribe.Cli -- models download base
+dotnet run --project src/WhisperNotes.Cli -- models download base
 
 # Transcribe a call live; Ctrl+C to stop and write the notes
-dotnet run --project src/NoteScribe.Cli -- listen --project "Acme Corp" --title "Sprint review"
+dotnet run --project src/WhisperNotes.Cli -- listen --project "Acme Corp" --title "Sprint review"
 
 # Or transcribe a recording you already have
-dotnet run --project src/NoteScribe.Cli -- transcribe --video "meeting.mp4" --project "Acme Corp"
+dotnet run --project src/WhisperNotes.Cli -- transcribe --video "meeting.mp4" --project "Acme Corp"
 
 # Or use the window
-dotnet run --project src/NoteScribe.App
+dotnet run --project src/WhisperNotes.App
 ```
 
 Full command reference: [`docs/CLI.md`](docs/CLI.md). Design notes: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## The UI
 
-Two pages, on a nav rail down the left: **Meeting** (`Ctrl+1`) and **Notes** (`Ctrl+2`). The
+Three pages, on a nav rail down the left: **Meeting** (`Ctrl+1`), **Notes** (`Ctrl+2`), and
+**Inputs** (`Ctrl+3`). The
 capture toolbar and the status bar sit outside the page switch, so a recording in progress stays
-visible and stoppable from either one.
+visible and stoppable from any page.
 
 ### Meeting
 
-Pick a channel, confirm the level meter is moving, press Start. Dictation streams into the
+Configure one or more sources on the Inputs page, confirm the level meter is moving, then press
+Start. Every enabled source starts together and is transcribed independently in parallel.
+Dictation streams into the
 centre pane with timestamps; you can type notes, flag action items, and drop markers alongside
 it. Past sessions are browsable on the left, grouped by project and date.
 
+Already recorded the meeting? Choose **Import video…** beside the recording button and pick the
+file. WhisperNotes extracts the first audio stream, transcribes it immediately with the selected
+Whisper model, identifies anonymous speaker changes, and opens the finished transcript in the same
+Meeting view. Progress and cancellation stay visible in the status bar; cancelling preserves any
+lines already decoded.
+
 Transcript lines are editable in place — Whisper reliably mangles proper nouns, and these notes
 are your record, so fixing "Dan Whitfield" once beats finding it wrong three weeks later.
+
+When a meeting has more than one voice, the finished transcript uses anonymous, session-local
+labels such as `Speaker 1` and `Speaker 2`. A return to an earlier voice reuses its original label
+when the voice model can match it; otherwise a new anonymous label still makes the speaker change
+visible. Nothing is looked up against an account or people database. The labels can be renamed
+across the whole session from the Meeting header after recording stops.
 
 ### Notes
 
@@ -69,6 +84,16 @@ brief, follow-up email, requirements extraction, transcript cleanup — plus a f
 instruction box for anything not on the list. **"New note from meeting…"** seeds a note from a
 finished session's transcript, which is the usual starting point.
 
+Transcript-backed notes expose their detected speakers in the library pane. Choose a label and
+rename it once to update every structured transcript and action-item occurrence without replacing
+the same words in ordinary prose. The change is saved as a normal revision, so it can be restored.
+
+The open note can be exported as plain Markdown, a self-contained HTML page, or a paginated PDF.
+**Export all for Obsidian (.zip)** packages the entire authored-note library with project folders
+and Obsidian-compatible YAML properties. Extract it and either open the folder as a vault or move
+the folders into an existing vault; the files remain ordinary UTF-8 Markdown and require no
+WhisperNotes plugin.
+
 Two things about the assistant are deliberate:
 
 - **It never edits your note directly.** Output streams into a preview and you choose Apply,
@@ -81,28 +106,41 @@ Two things about the assistant are deliberate:
 The provider is configurable (gear icon): Ollama on localhost by default, Anthropic if you supply
 a key. See the note on what leaves the machine at the top of this file.
 
-## Choosing the right channel
+### Inputs
+
+Add any loopback and microphone endpoints that belong in a session, give each a useful display
+name, and enable the set to record. Configured devices persist between launches; an unplugged
+device stays visible as unavailable instead of silently falling back to a different endpoint.
+Disabled inputs remain configured for later.
+
+Each source owns an independent capture and Whisper pipeline. A microphone source is labelled
+with its configured display name in the transcript; loopback sources continue to use anonymous
+voice attribution when diarization is enabled.
+
+## Choosing the right inputs
 
 This is the one thing worth getting right, so read this bit.
 
-There is no "Teams audio device" to select. What you capture is a **render endpoint in loopback
-mode** — everything Windows is playing out of that device, which includes Teams. Two setups:
+There is no "Teams audio device" to select. For the remote side, capture a **render endpoint in
+loopback mode** — everything Windows is playing out of that device, which includes Teams. Two
+setups:
 
 **Simple.** Capture your default output device. You get Teams, plus anything else making noise
 — Spotify, notification dings, a YouTube tab. Fine if you're not playing anything else.
 
 **Clean.** You already have Voicemeeter installed, so you can isolate Teams properly: set Teams'
-output device to `Voicemeeter In 1`, then capture that endpoint in NoteScribe. Now the transcript
+output device to `Voicemeeter In 1`, then capture that endpoint in WhisperNotes. Now the transcript
 contains the call and nothing else. VB-Audio Cable works the same way if you'd rather not run
 Voicemeeter.
 
 Either way, **watch the level meter before you trust a recording.** Silently capturing the wrong
 endpoint for an hour is the worst failure this tool has, and the meter is a two-second check
-against it. The UI shows `silent — is this the endpoint Teams plays through?` when a channel is
-producing nothing.
+against it. The toolbar monitors the first enabled input before recording and combines peaks from
+all active inputs while recording.
 
-Loopback captures the remote participants *and* your own voice as Teams renders it back. It does
-not tap your microphone directly.
+Add your microphone as a second enabled input when you want a clean local track. It is captured
+and transcribed at the same time as the loopback input, without relying on Teams to echo your voice
+into the playback mix.
 
 ## Choosing a model
 
@@ -121,16 +159,16 @@ un-fetched `medium` would otherwise stall on a 1.5 GB download exactly when your
 If your calls are full of client names, product names, or acronyms, set a vocabulary hint:
 
 ```powershell
-dotnet run --project src/NoteScribe.Cli -- config set InitialPrompt "Acme Corp, Northwind, Entra ID, SCCM, Intune"
+dotnet run --project src/WhisperNotes.Cli -- config set InitialPrompt "Acme Corp, Northwind, Entra ID, SCCM, Intune"
 ```
 
 ## Where notes go
 
-Default root is `%USERPROFILE%\Documents\NoteScribe`. Sessions are filed so they sort correctly
+Default root is `%USERPROFILE%\Documents\WhisperNotes`. Sessions are filed so they sort correctly
 in Explorer and read fine without the app:
 
 ```
-NoteScribe/
+WhisperNotes/
   Acme Corp/
     2026/
       2026-07-25/
@@ -147,12 +185,16 @@ The `.jsonl` is written append-only and flushed per utterance, so if the app die
 lose at most the last sentence. `notes.md` is regenerated from it on finalize, and closing the
 window mid-session finalizes rather than abandons.
 
+Authored notes from the **Notes** page live under `WhisperNotes/_documents/`. That storage folder
+also contains revision history, so use the export controls (or `whispernotes export`) when you want
+a clean portable copy rather than copying the internal folders directly.
+
 ## Requirements
 
 - Windows 10/11
 - .NET 10 SDK
-- ffmpeg on `PATH` — only needed for `transcribe`. Set `--ffmpeg` or `config set FfmpegPath` if
-  it lives somewhere unusual.
+- ffmpeg on `PATH` — needed for CLI `transcribe` and the desktop **Import video…** action. Set
+  `--ffmpeg` or `config set FfmpegPath` if it lives somewhere unusual.
 - **Visual Studio 2026 (18.x)** if you want an IDE. See below.
 
 ### Opening in Visual Studio
@@ -176,32 +218,29 @@ and open `NoteTakingSpeechToText.slnx` from within it.
 
 Note the solution is a `.slnx` — the newer XML format that `dotnet new sln` now emits by default.
 VS 2026 reads it natively; VS 2022 needs an opt-in preview flag even before the MSBuild issue.
-It only lists the three projects, so nothing about the build depends on it.
+It lists the three product projects plus the focused Core test project, so nothing about the build
+depends on it.
 
 `dotnet build` from the command line works regardless of which Visual Studio is installed.
 
 ## Known limits
 
-- **No speaker attribution yet.** Whisper is speech-to-text only; it has no notion of who is
-  talking. Stable speaker labels with in-app renaming are planned — see the roadmap below.
 - **Loopback can't separate participants.** Teams delivers one mixed stream. Where a recording
   has per-participant audio streams, `transcribe --list-streams` will show them and `--stream`
-  will pick one.
+  will pick one. Anonymous speaker labelling distinguishes voices in a mixed stream, but overlapping
+  speech can still be ambiguous.
 - **CPU decode.** GPU acceleration exists in Whisper.net via separate CUDA/Vulkan runtime
   packages but isn't wired up.
 - Windows only, because it's built on WASAPI.
 
 ## Roadmap
 
-- Speaker labelling: stable `Speaker A/B/C` labels via voice-embedding clustering, renameable in
-  the UI mid-session and applied retroactively.
-- Optional dual capture (loopback + microphone) to separate "them" from "you" without any ML.
 - GPU decode.
 
 ## Layout
 
 | Project | What it is |
 |---|---|
-| `src/NoteScribe.Core` | Audio capture, transcription, ffmpeg, note storage. No UI. |
-| `src/NoteScribe.Cli` | `notescribe` — headless capture, video ingest, session listing. |
-| `src/NoteScribe.App` | Avalonia desktop app. |
+| `src/WhisperNotes.Core` | Audio capture, transcription, ffmpeg, note storage. No UI. |
+| `src/WhisperNotes.Cli` | `whispernotes` — headless capture, video ingest, session listing. |
+| `src/WhisperNotes.App` | Avalonia desktop app. |

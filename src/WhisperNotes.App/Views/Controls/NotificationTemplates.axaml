@@ -1,0 +1,78 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:WhisperNotes.App.ViewModels"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <!--
+    ============================================================================
+    The notification toast.
+
+    A DataTemplate, not a UserControl: it is driven end to end by one view model
+    type, which is precisely the DataTemplate case. Together with the Border.toast
+    and Border.severity styles (ComponentStyles.axaml) it takes 89 lines out of
+    MainWindow.axaml — 50 of markup and 39 of window-local styles — and the shell
+    window goes back to being a layout file.
+
+    Keyed rather than implicit so the call site says which template it means:
+
+        <ItemsControl ItemsSource="{Binding Notifications}"
+                      ItemTemplate="{StaticResource NotificationToastTemplate}" />
+
+    x:DataType is kept so compiled bindings still verify every path in here.
+    ============================================================================
+  -->
+  <Styles.Resources>
+    <DataTemplate x:Key="NotificationToastTemplate"
+                  DataType="vm:NotificationViewModel"
+                  x:DataType="vm:NotificationViewModel">
+      <Border Classes="toast">
+        <Grid ColumnDefinitions="Auto,*">
+
+          <!-- One bar, three classes. This was three Borders with mutually exclusive
+               IsVisible bindings — the same paired-Ellipse idiom StatusDot retires. -->
+          <Border Grid.Column="0"
+                  Classes="severity"
+                  Classes.info="{Binding IsInfo}"
+                  Classes.warning="{Binding IsWarning}"
+                  Classes.error="{Binding IsError}" />
+
+          <Grid Grid.Column="1"
+                Margin="{DynamicResource PadCard}"
+                ColumnDefinitions="*,Auto"
+                ColumnSpacing="{DynamicResource Space3}">
+
+            <StackPanel Grid.Column="0" Spacing="{DynamicResource Space3}">
+              <StackPanel Spacing="{DynamicResource Space1}">
+                <TextBlock Text="{Binding Title}"
+                           FontSize="{DynamicResource FontSizeMd}"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           TextTrimming="None" />
+                <TextBlock Text="{Binding Message}"
+                           Foreground="{DynamicResource TextSecondary}"
+                           FontSize="{DynamicResource FontSizeSm}"
+                           TextWrapping="Wrap"
+                           TextTrimming="None" />
+              </StackPanel>
+
+              <Button Classes="subtle"
+                      HorizontalAlignment="Left"
+                      Content="{Binding ActionLabel}"
+                      IsVisible="{Binding HasAction}"
+                      Command="{Binding InvokeCommand}" />
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Classes="icon"
+                    VerticalAlignment="Top"
+                    ToolTip.Tip="Dismiss"
+                    IsVisible="{Binding CanDismiss}"
+                    Command="{Binding DismissCommand}">
+              <ctl:Icon Data="{DynamicResource IconClose}" />
+            </Button>
+          </Grid>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </Styles.Resources>
+</Styles>

@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ctl="using:WhisperNotes.App.Views.Controls"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.AiSettingsView"
+             x:DataType="vm:AiSettingsViewModel">
+
+  <Border Background="{DynamicResource AiAccentMuted}"
+          BorderBrush="{DynamicResource BorderDefault}"
+          BorderThickness="0,1,0,1"
+          Padding="{DynamicResource PadCard}">
+    <StackPanel Spacing="{DynamicResource Space3}">
+
+      <TextBlock Classes="label" Text="ASSISTANT" />
+
+      <!-- provider -->
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Space4}">
+        <RadioButton GroupName="AiProvider"
+                     Content="Ollama (local)"
+                     IsChecked="{Binding IsOllama}"
+                     ToolTip.Tip="Runs on this machine. Note text never leaves it." />
+        <RadioButton GroupName="AiProvider"
+                     Content="Anthropic"
+                     IsChecked="{Binding IsAnthropic}"
+                     ToolTip.Tip="Hosted. Sends the note text you point an action at off this machine." />
+      </StackPanel>
+
+      <!-- ollama -->
+      <StackPanel Spacing="{DynamicResource Space3}" IsVisible="{Binding IsOllama}">
+        <ctl:LabeledField Header="Endpoint">
+          <TextBox Text="{Binding OllamaEndpoint}" PlaceholderText="http://localhost:11434" />
+        </ctl:LabeledField>
+        <ctl:LabeledField Header="Model">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space2}">
+            <TextBox Grid.Column="0" Text="{Binding OllamaModel}" PlaceholderText="llama3.1" />
+            <Button Grid.Column="1"
+                    Classes="subtle"
+                    Content="Refresh"
+                    Command="{Binding RefreshModelsCommand}"
+                    IsEnabled="{Binding !IsRefreshingModels}"
+                    ToolTip.Tip="Ask the provider which models it has" />
+          </Grid>
+        </ctl:LabeledField>
+      </StackPanel>
+
+      <!-- anthropic -->
+      <StackPanel Spacing="{DynamicResource Space3}" IsVisible="{Binding IsAnthropic}">
+        <ctl:LabeledField Header="Model">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Space2}">
+            <TextBox Grid.Column="0" Text="{Binding AnthropicModel}" PlaceholderText="claude-opus-5" />
+            <Button Grid.Column="1"
+                    Classes="subtle"
+                    Content="Refresh"
+                    Command="{Binding RefreshModelsCommand}"
+                    IsEnabled="{Binding !IsRefreshingModels}" />
+          </Grid>
+        </ctl:LabeledField>
+        <ctl:LabeledField Header="API key"
+                          HelpText="Stored in your settings file. It is never written to a log or shown in a notification.">
+          <TextBox Text="{Binding AnthropicApiKey}"
+                   PasswordChar="•"
+                   PlaceholderText="sk-ant-… or leave blank to use ANTHROPIC_API_KEY"
+                   AutomationProperties.Name="Anthropic API key" />
+        </ctl:LabeledField>
+      </StackPanel>
+
+      <!-- discovered models -->
+      <ctl:LabeledField Header="Available on this provider" IsVisible="{Binding HasModels}">
+        <ComboBox ItemsSource="{Binding AvailableModels}"
+                  SelectedItem="{Binding SelectedDiscoveredModel}"
+                  HorizontalAlignment="Stretch"
+                  PlaceholderText="pick a discovered model"
+                  AutomationProperties.Name="Discovered models" />
+      </ctl:LabeledField>
+
+      <TextBlock Classes="caption"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Text="{Binding ModelsHint}"
+                 IsVisible="{Binding HasModelsHint}" />
+
+      <!-- budget -->
+      <ctl:LabeledField Header="Max output tokens">
+        <TextBox Text="{Binding MaxOutputTokensText}"
+                 Width="90"
+                 HorizontalAlignment="Left"
+                 AutomationProperties.Name="Max output tokens" />
+      </ctl:LabeledField>
+
+      <!-- not-configured hint -->
+      <Border Classes="callout warning" IsVisible="{Binding HasConfigurationHint}">
+        <TextBlock Text="{Binding ConfigurationHint}" />
+      </Border>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WhisperNotes.Cli</RootNamespace>
+    <AssemblyName>whispernotes</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WhisperNotes.Core\WhisperNotes.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.Controls.LevelMeter"
+             x:DataType="vm:AudioMeterViewModel">
+
+  <!--
+    ==========================================================================================
+    Pre-flight level meter — LED strip, peak-hold marker and readout.
+
+    A UserControl, not a TemplatedControl: this is a repeat-with-bindings over a view model
+    collection (ItemsControl of MeterSegmentViewModel) plus two sibling readouts, and it is
+    driven entirely by one DataContext — an AudioMeterViewModel. A TemplatedControl would have
+    to restate every one of those values as a StyledProperty and mirror them by hand for no
+    gain; a DataTemplate is wrong because the meter is not itself an item in a list.
+
+    Everything that decides how wide the meter is now lives in this one file: the segment
+    count is the view model's (AudioMeterViewModel.SegmentCount), and the LED geometry and the
+    strip spacing are the resources below. It used to take three files to answer "how wide is
+    the meter" — App.axaml owned the LED, CaptureBarView owned the well and the spacing — and
+    the answer was 204px, which is what pushed the record button off the right edge.
+
+    Width, for the record: 16 x LedWidth 4 + 15 x Space1 2 = 94 strip, + PadTight 6+6 and the
+    1px well border = 108, + Space3 8 + ReadoutWidth 64 = 180 for the whole control. Nothing
+    in here changes width with state: the silence warning replaces the readout in the same
+    fixed box rather than appearing beside it.
+    ==========================================================================================
+  -->
+
+  <UserControl.Resources>
+    <x:Double x:Key="LedWidth">4</x:Double>
+    <x:Double x:Key="LedHeight">18</x:Double>
+    <CornerRadius x:Key="LedRadius">1</CornerRadius>
+
+    <!-- LED 18 + PadTight 4+4 + 1+1 border. Stated rather than derived so the well matches the
+         28px content height the rest of the capture bar row uses. -->
+    <x:Double x:Key="MeterWellHeight">28</x:Double>
+
+    <!-- Wide enough for the longest readout the view model produces ("-100 dBFS", 9 monospace
+         characters at FontSizeXs). It is fixed, and the digits are right-aligned, so a level
+         moving from -6 to -42 dBFS cannot shuffle the unit sideways 16 times a second. -->
+    <x:Double x:Key="ReadoutWidth">64</x:Double>
+
+    <x:Double x:Key="LedOffOpacity">0.13</x:Double>
+    <x:Double x:Key="LedPeakOpacity">0.6</x:Double>
+    <x:Double x:Key="LedOnOpacity">1</x:Double>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- The sunken strip. Its border is the one cue that separates "listening, but this
+         endpoint is silent" from "not listening at all" — both leave every LED dark. -->
+    <Style Selector="Border.well">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunken}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+      <Setter Property="Padding" Value="{StaticResource PadTight}" />
+      <Setter Property="Height" Value="{StaticResource MeterWellHeight}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.well.live">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBase}" />
+    </Style>
+
+    <!-- One LED. Green up to ~-13 dBFS, amber to ~-6, red above; the bands are decided by the
+         view model so they stay put in dB terms whatever the segment count is. -->
+    <Style Selector="Border.led">
+      <Setter Property="Width" Value="{StaticResource LedWidth}" />
+      <Setter Property="Height" Value="{StaticResource LedHeight}" />
+      <Setter Property="CornerRadius" Value="{StaticResource LedRadius}" />
+      <Setter Property="Background" Value="{DynamicResource SuccessBase}" />
+      <Setter Property="Opacity" Value="{StaticResource LedOffOpacity}" />
+    </Style>
+
+    <Style Selector="Border.led.mid">
+      <Setter Property="Background" Value="{DynamicResource WarningBase}" />
+    </Style>
+
+    <Style Selector="Border.led.high">
+      <Setter Property="Background" Value="{DynamicResource DangerBase}" />
+    </Style>
+
+    <!-- Peak hold before lit, deliberately: a segment that is both is simply lit. -->
+    <Style Selector="Border.led.peak">
+      <Setter Property="Opacity" Value="{StaticResource LedPeakOpacity}" />
+    </Style>
+
+    <Style Selector="Border.led.lit">
+      <Setter Property="Opacity" Value="{StaticResource LedOnOpacity}" />
+    </Style>
+
+    <Style Selector="TextBlock.readout">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="TextTrimming" Value="None" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.readout.live">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+    </Style>
+
+    <Style Selector="TextBlock.readout.alarm">
+      <Setter Property="Foreground" Value="{DynamicResource WarningBase}" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Orientation="Horizontal"
+              Spacing="{StaticResource Space3}"
+              VerticalAlignment="Center">
+
+    <Border Classes="well" Classes.live="{Binding HasSignal}"
+            ToolTip.Tip="Peak level across every enabled input">
+      <ItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Center">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="{StaticResource Space1}" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="vm:MeterSegmentViewModel" x:DataType="vm:MeterSegmentViewModel">
+            <Border Classes="led"
+                    Classes.mid="{Binding IsMid}"
+                    Classes.high="{Binding IsHigh}"
+                    Classes.peak="{Binding IsPeak}"
+                    Classes.lit="{Binding IsLit}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <!-- Readout and silence warning share one fixed cell. The warning used to sit beside the
+         readout, so the toolbar grew ~63px the moment an endpoint went quiet — and the level
+         text says "silent" in that state anyway, which is the same news twice. -->
+    <Panel Width="{StaticResource ReadoutWidth}" VerticalAlignment="Center">
+      <TextBlock Classes="mono caption readout"
+                 Classes.live="{Binding IsActive}"
+                 IsVisible="{Binding !IsSilent}"
+                 Text="{Binding LevelText}" />
+
+      <TextBlock Classes="mono caption readout alarm"
+                 IsVisible="{Binding IsSilent}"
+                 Text="no audio"
+                 ToolTip.Tip="Nothing has been heard on this endpoint for several seconds — is this the device Teams plays through?" />
+    </Panel>
+  </StackPanel>
+</UserControl>

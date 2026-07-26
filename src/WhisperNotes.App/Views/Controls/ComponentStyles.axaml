@@ -1,0 +1,268 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <!--
+    ============================================================================
+    Class styles for shapes that carry no properties and no logic.
+
+    The rule the components follow: if a repeat needs a value from its call site
+    it is a control; if it is purely "these five attributes, every time", it is a
+    Style and lives here. Everything below is the second kind.
+
+    Included from App.axaml LAST, so a rule here can refine anything in the base
+    sheet without a specificity fight.
+    ============================================================================
+  -->
+
+  <!-- ==========================================================================
+       CALLOUT — a tinted panel that says something the user has to read
+
+       Four sites, four different sets of five attributes, and two of them were
+       the SAME warning callout at two different sizes on two different screens
+       (RadiusSm + PadTight on one, RadiusMd + PadCard on the other).
+
+         <Border Classes="callout warning">
+           <TextBlock Text="{Binding Hint}" />
+         </Border>
+
+       The severity also reaches the text, which deletes the TextWrapping,
+       TextTrimming and Foreground trio from each of the four inner TextBlocks.
+       ========================================================================== -->
+  <Style Selector="Border.callout">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+    <Setter Property="Padding" Value="{DynamicResource PadCard}" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefault}" />
+  </Style>
+
+  <!--
+    The tint reaches the PROSE, not everything inside the box. Deliberately the two structural
+    paths the callouts actually use — a TextBlock directly in the Border, or one inside the
+    StackPanel that also carries a confirm/cancel row — and NOT a bare descendant selector.
+    A descendant selector would also catch the label inside a Button: since this sheet is
+    included after the base one, the Delete button in a delete-confirmation callout would end up
+    printing DangerBase text on a DangerBase fill.
+  -->
+  <Style Selector="Border.callout > TextBlock,
+                   Border.callout > StackPanel > TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+
+  <Style Selector="Border.callout.info">
+    <Setter Property="Background" Value="{DynamicResource InfoMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InfoBase}" />
+  </Style>
+  <Style Selector="Border.callout.info > TextBlock,
+                   Border.callout.info > StackPanel > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+
+  <Style Selector="Border.callout.warning">
+    <Setter Property="Background" Value="{DynamicResource WarningMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource WarningBase}" />
+  </Style>
+  <Style Selector="Border.callout.warning > TextBlock,
+                   Border.callout.warning > StackPanel > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource WarningBase}" />
+  </Style>
+
+  <Style Selector="Border.callout.danger">
+    <Setter Property="Background" Value="{DynamicResource DangerMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DangerBase}" />
+  </Style>
+  <Style Selector="Border.callout.danger > TextBlock,
+                   Border.callout.danger > StackPanel > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource DangerBase}" />
+  </Style>
+
+  <!--
+    A callout spanning the whole window rather than sitting inside a pane: square, hairline
+    underneath instead of an outline, tighter. The shell's sample-data chip is this.
+  -->
+  <Style Selector="Border.callout.banner">
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusNone}" />
+    <Setter Property="Padding" Value="{DynamicResource PadTight}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}" />
+  </Style>
+
+  <!-- ==========================================================================
+       WELL — a sunken container for a segmented control or a meter
+       ========================================================================== -->
+  <Style Selector="Border.well">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSunken}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <!-- A segmented well insets by a hairline; the meter well wants breathing room and sets
+         Padding itself. The two disagreed on 2 vs 6,4 with no reason recorded either way. -->
+    <Setter Property="Padding" Value="{DynamicResource PadMicro}" />
+  </Style>
+
+  <!-- ==========================================================================
+       VSEP — a hairline between two groups on one row
+
+       The capture bar has five logical groups and used the same 8px gap between
+       every pair of controls, inside a group and between two groups alike, with
+       no separator anywhere. Two-tier rhythm plus this: Space2 inside a group,
+       Space4 between, hairline on the boundary.
+       ========================================================================== -->
+  <Style Selector="Border.vsep">
+    <Setter Property="Width" Value="{DynamicResource SeparatorThickness}" />
+    <Setter Property="Height" Value="{DynamicResource SeparatorLength}" />
+    <Setter Property="Background" Value="{DynamicResource BorderSubtle}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- ==========================================================================
+       BADGE MODIFIERS
+
+       Border.badge already had three semantic variants in App.axaml; two more
+       were invented inline at call sites instead, one of them spending four
+       attributes on the inner TextBlock UNDOING the base badge's typography.
+       `soft` is that undo, named: a badge carrying a value rather than a keyword.
+       ========================================================================== -->
+  <Style Selector="Border.badge.accent">
+    <Setter Property="Background" Value="{DynamicResource AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentMuted}" />
+  </Style>
+  <Style Selector="Border.badge.accent > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBase}" />
+  </Style>
+
+  <Style Selector="Border.badge.ai">
+    <Setter Property="Background" Value="{DynamicResource AiAccentMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AiAccent}" />
+  </Style>
+  <Style Selector="Border.badge.ai > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AiAccent}" />
+  </Style>
+
+  <Style Selector="Border.badge.soft > TextBlock">
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="LetterSpacing" Value="0" />
+  </Style>
+
+  <!-- ==========================================================================
+       ACTIONS — the confirm / cancel button pair
+
+       Six sites, four of them at Space2 and two at Space3 for the identical
+       thing. Space3, everywhere. Primary first: two of the six put Cancel on the
+       left, which means the same click lands on opposite buttons on two screens.
+       ========================================================================== -->
+  <Style Selector="StackPanel.actions">
+    <Setter Property="Orientation" Value="Horizontal" />
+    <Setter Property="Spacing" Value="{DynamicResource Space3}" />
+  </Style>
+
+  <!-- ==========================================================================
+       PANESEARCH — the filter box under a pane header
+       ========================================================================== -->
+  <Style Selector="TextBox.panesearch">
+    <Setter Property="Margin" Value="{DynamicResource PadPaneField}" />
+  </Style>
+
+  <!-- ==========================================================================
+       TOAST — the notification card, lifted out of MainWindow's Window.Styles
+
+       Used by NotificationToastTemplate; see NotificationTemplates.axaml.
+       ========================================================================== -->
+  <Style Selector="Border.toast">
+    <Setter Property="Background" Value="{DynamicResource SurfaceOverlay}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+    <Setter Property="MinWidth" Value="{DynamicResource ToastMinWidth}" />
+    <!--
+      Slide comes from TranslateTransform.X, not RenderTransform. Avalonia has no animator
+      registered for RenderTransform, so animating it throws at style-apply time —
+      "No animator registered for the property RenderTransform." That is a runtime failure the
+      XAML compiler cannot see, so it crashed the window on construction rather than failing the
+      build. TranslateTransform.X is a double and uses the built-in DoubleAnimator.
+    -->
+    <Setter Property="RenderTransform">
+      <Setter.Value>
+        <TranslateTransform />
+      </Setter.Value>
+    </Setter>
+    <Style.Animations>
+      <!-- Entrance only: a toast slides in from the right edge it is docked to. -->
+      <Animation Duration="0:0:0.16" FillMode="Forward" Easing="CubicEaseOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="TranslateTransform.X" Value="20" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="TranslateTransform.X" Value="0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- One bar with three severity modifiers, not three bars with opposite visibilities. -->
+  <Style Selector="Border.severity">
+    <Setter Property="Width" Value="{DynamicResource SeverityBarWidth}" />
+    <Setter Property="Margin" Value="{DynamicResource PadMicro}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="{DynamicResource InfoBase}" />
+  </Style>
+  <Style Selector="Border.severity.info">
+    <Setter Property="Background" Value="{DynamicResource InfoBase}" />
+  </Style>
+  <Style Selector="Border.severity.warning">
+    <Setter Property="Background" Value="{DynamicResource WarningBase}" />
+  </Style>
+  <Style Selector="Border.severity.error">
+    <Setter Property="Background" Value="{DynamicResource DangerBase}" />
+  </Style>
+
+  <!-- ==========================================================================
+       ICON COLOUR
+
+       A Path does not inherit Foreground, and a descendant selector cannot reach
+       into another control's template, so the button variants that host an Icon
+       have to hand it a brush themselves. These are the equivalents of the
+       `Button.x TextBlock` foreground rules the base sheet already carries.
+       ========================================================================== -->
+  <Style Selector="Button.icon ctl|Icon, Button.ghost ctl|Icon, Button.subtle ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextSecondary}" />
+  </Style>
+  <Style Selector="Button.icon:pointerover ctl|Icon,
+                   Button.ghost:pointerover ctl|Icon,
+                   Button.subtle:pointerover ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextPrimary}" />
+  </Style>
+
+  <Style Selector="Button.accent ctl|Icon, Button.danger ctl|Icon, Button.record ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextInverse}" />
+  </Style>
+
+  <Style Selector="Button.ai ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource AiAccent}" />
+  </Style>
+  <Style Selector="Button.ai:pointerover ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource AiAccentBright}" />
+  </Style>
+
+  <!-- The nav rail styles its loose Paths in MainWindow.axaml; those selectors stop at the Icon's
+       template boundary, so the rail's three states are restated here for the day it converts. -->
+  <Style Selector="Button.nav ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextMuted}" />
+  </Style>
+  <Style Selector="Button.nav:pointerover ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextSecondary}" />
+  </Style>
+  <Style Selector="Button.nav.selected ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextPrimary}" />
+  </Style>
+
+  <Style Selector="Button:disabled ctl|Icon">
+    <Setter Property="Stroke" Value="{DynamicResource TextMuted}" />
+  </Style>
+
+</Styles>

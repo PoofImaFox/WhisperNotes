@@ -1,0 +1,339 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:WhisperNotes.App.ViewModels"
+        xmlns:views="using:WhisperNotes.App.Views"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls"
+        xmlns:dd="using:WhisperNotes.App.DesignData"
+        mc:Ignorable="d"
+        x:Class="WhisperNotes.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        d:DataContext="{x:Static dd:DesignTime.Main}"
+        Title="{Binding WindowTitle}"
+        Width="1360"
+        Height="880"
+        MinWidth="1040"
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+
+  <!--
+    ==========================================================================================
+    Shell layout
+
+      row 0  CaptureBarView   — transport + meter. Outside the page switch on purpose: a
+                                recording must stay visible and stoppable from every page.
+      row 1  sample-data chip — permanent, decided once at startup, never toggles at runtime.
+      row 2  nav rail + page host (all pages live here, only IsVisible moves)
+      row 3  StatusBarView    — also outside the page switch.
+
+    The notification stack is a floating overlay inside the page host cell, NOT an in-flow row.
+    See the comment on it below: that reflow was resizing the transcript viewport.
+    ==========================================================================================
+  -->
+
+  <!--
+    D1/D2/D3, not 1/2/3. Avalonia parses the key token with Enum.TryParse<Key>, and .NET's
+    Enum.TryParse accepts a numeric string as an underlying VALUE — so "Ctrl+1" parsed silently
+    to (Key)1 == Key.Cancel and "Ctrl+2" to (Key)2 == Key.Back. Both compiled, neither could ever
+    match a digit keypress. The real work is done by the tunnelling handler in the code-behind
+    (KeyBindings run on the bubbling route, so a focused TextBox gets first refusal); these stay
+    as the declarative record of the shell's shortcuts.
+  -->
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+D1" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Meeting}" />
+    <KeyBinding Gesture="Ctrl+D2" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Notes}" />
+    <KeyBinding Gesture="Ctrl+D3" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Inputs}" />
+  </Window.KeyBindings>
+
+  <Window.Resources>
+    <!-- Shell-local tokens. Named rather than inline so no raw number appears in the markup.
+         SelectionBarWidth is NOT here: it is an app-level token now, shared with the row idiom. -->
+    <x:Double x:Key="NavRailWidth">52</x:Double>
+    <x:Double x:Key="NavGlyphSize">18</x:Double>
+    <Thickness x:Key="NavItemPadding">0,10</Thickness>
+    <Thickness x:Key="NavBadgeMargin">0,8,7,0</Thickness>
+    <x:Double x:Key="NavBadgeSize">7</x:Double>
+
+    <!-- Pane geometry. The two column WIDTHS are GridLengths and are written inline below;
+         everything typed as a plain double is named here. -->
+    <x:Double x:Key="SidebarMinWidth">200</x:Double>
+    <x:Double x:Key="SidebarMaxWidth">460</x:Double>
+    <x:Double x:Key="TranscriptMinWidth">360</x:Double>
+
+    <!-- Overlay geometry, per the app contract. The toast's own chrome (ToastMinWidth,
+         SeverityBarWidth) moved to App.axaml with Border.toast; only the stack's placement
+         is the shell's business. -->
+    <Thickness x:Key="ToastStackMargin">0,12,16,0</Thickness>
+    <x:Double x:Key="ToastStackMaxWidth">420</x:Double>
+  </Window.Resources>
+
+  <Window.Styles>
+
+    <!-- ====================================================================================
+         Nav rail items. Scoped to this window: there is no app-wide "rail" control to skin.
+         Selected = TextPrimary + a 2px AccentBase left bar (the app-wide selection idiom).
+         ==================================================================================== -->
+    <Style Selector="Button.nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="Button.nav /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHover}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Button.nav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfacePressed}" />
+    </Style>
+
+    <Style Selector="Button.nav:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBase}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- Rest / hover / selected foregrounds. Order matters: later match wins.
+         The glyphs are ctl:Icon now, and their three stroke states live beside every other
+         icon-hosting button variant in Views/Controls/ComponentStyles.axaml — a selector here
+         could not reach inside the Icon's own template anyway. -->
+    <Style Selector="Button.nav TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeXs}" />
+      <Setter Property="TextTrimming" Value="None" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.nav:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+    </Style>
+
+    <Style Selector="Button.nav.selected TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    </Style>
+
+    <Style Selector="Button.nav.selected:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    </Style>
+
+    <!-- ====================================================================================
+         Draggable pane split
+         ==================================================================================== -->
+    <Style Selector="GridSplitter">
+      <Setter Property="Background" Value="{DynamicResource BorderSubtle}" />
+      <Setter Property="MinWidth" Value="0" />
+    </Style>
+    <Style Selector="GridSplitter:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AccentBase}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <views:CaptureBarView Grid.Row="0" />
+
+    <!--
+      Sample-data chip. AppServices.IsSampleData is fixed for the life of the process, so this
+      row's height is decided before any content exists and can never reflow the panes below —
+      unlike the notification banners it replaces for this one case. It is deliberately not
+      dismissible: nobody may mistake simulated notes for a real client recording.
+    -->
+    <Border Grid.Row="1" Classes="callout warning banner" IsVisible="{Binding IsSampleData}">
+      <StackPanel Orientation="Horizontal" Spacing="{StaticResource Space3}" VerticalAlignment="Center">
+        <Border Classes="severity warning" />
+        <TextBlock Classes="section" VerticalAlignment="Center" Text="SAMPLE DATA" />
+        <!-- One line, always: the callout's prose rule wraps by default, and this row's height
+             is pinned by construction so the panes below it can never reflow. -->
+        <TextBlock Classes="caption"
+                   VerticalAlignment="Center"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding SampleDataText}"
+                   Text="{Binding SampleDataText}" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <!-- ================================ Nav rail ================================ -->
+      <Border Grid.Column="0"
+              Width="{StaticResource NavRailWidth}"
+              Background="{DynamicResource SurfaceSunken}"
+              BorderBrush="{DynamicResource BorderSubtle}"
+              BorderThickness="0,0,1,0">
+        <StackPanel Orientation="Vertical">
+
+          <Button Classes="nav"
+                  Classes.selected="{Binding IsMeetingPage}"
+                  Command="{Binding GoToPageCommand}"
+                  CommandParameter="{x:Static vm:ShellPage.Meeting}"
+                  ToolTip.Tip="Meeting — live capture and transcript  (Ctrl+1)">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Grid.Column="0"
+                      Width="{StaticResource SelectionBarWidth}"
+                      Background="{DynamicResource AccentBase}"
+                      IsVisible="{Binding IsMeetingPage}" />
+
+              <StackPanel Grid.Column="1"
+                          Margin="{StaticResource NavItemPadding}"
+                          Spacing="{StaticResource Space1}">
+                <ctl:Icon Data="{DynamicResource IconMic}" Size="{StaticResource NavGlyphSize}" />
+                <TextBlock Text="Meeting" />
+              </StackPanel>
+
+              <!-- Live-elsewhere tell-tale: what is happening on the page you are not looking at. -->
+              <ctl:StatusDot Grid.Column="1"
+                             Kind="Danger"
+                             Pulse="True"
+                             Size="{StaticResource NavBadgeSize}"
+                             Margin="{StaticResource NavBadgeMargin}"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             IsVisible="{Binding IsRecording}"
+                             ToolTip.Tip="Recording in progress" />
+            </Grid>
+          </Button>
+
+          <Button Classes="nav"
+                  Classes.selected="{Binding IsNotesPage}"
+                  Command="{Binding GoToPageCommand}"
+                  CommandParameter="{x:Static vm:ShellPage.Notes}"
+                  ToolTip.Tip="Notes — write, edit and revise documents  (Ctrl+2)">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Grid.Column="0"
+                      Width="{StaticResource SelectionBarWidth}"
+                      Background="{DynamicResource AccentBase}"
+                      IsVisible="{Binding IsNotesPage}" />
+
+              <StackPanel Grid.Column="1"
+                          Margin="{StaticResource NavItemPadding}"
+                          Spacing="{StaticResource Space1}">
+                <ctl:Icon Data="{DynamicResource IconDocument}" Size="{StaticResource NavGlyphSize}" />
+                <TextBlock Text="Notes" />
+              </StackPanel>
+
+              <!-- Unsaved-edit dot, so a dirty note is visible from the Meeting page. -->
+              <ctl:StatusDot Grid.Column="1"
+                             Kind="Info"
+                             Size="{StaticResource NavBadgeSize}"
+                             Margin="{StaticResource NavBadgeMargin}"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             IsVisible="{Binding Notes.HasUnsavedChanges}"
+                             ToolTip.Tip="Unsaved changes" />
+            </Grid>
+          </Button>
+
+          <Button Classes="nav"
+                  Classes.selected="{Binding IsInputsPage}"
+                  Command="{Binding GoToPageCommand}"
+                  CommandParameter="{x:Static vm:ShellPage.Inputs}"
+                  ToolTip.Tip="Inputs — configure parallel audio capture  (Ctrl+3)">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Grid.Column="0"
+                      Width="{StaticResource SelectionBarWidth}"
+                      Background="{DynamicResource AccentBase}"
+                      IsVisible="{Binding IsInputsPage}" />
+
+              <StackPanel Grid.Column="1"
+                          Margin="{StaticResource NavItemPadding}"
+                          Spacing="{StaticResource Space1}">
+                <ctl:Icon Data="{DynamicResource IconSliders}" Size="{StaticResource NavGlyphSize}" />
+                <TextBlock Text="Inputs" />
+              </StackPanel>
+            </Grid>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================ Page host (single cell) ============================ -->
+      <Grid Grid.Column="1">
+
+        <!--
+          Both pages are siblings in the same cell and are only ever shown/hidden.
+          An invisible Layoutable is skipped by measure/arrange entirely, so the Meeting page
+          keeps its ScrollViewer offset, its realised containers and its bindings while Notes
+          is on screen. A ContentControl + DataTemplate would rebuild the whole subtree on every
+          switch and lose the transcript's scroll position mid-recording.
+        -->
+        <Grid IsVisible="{Binding IsMeetingPage}">
+          <Grid.ColumnDefinitions>
+            <!-- 264: retuned down from 292. The GridSplitter rewrites this width as the user drags. -->
+            <ColumnDefinition Width="264"
+                              MinWidth="{StaticResource SidebarMinWidth}"
+                              MaxWidth="{StaticResource SidebarMaxWidth}" />
+            <!-- 3: the splitter's own column. -->
+            <ColumnDefinition Width="3" />
+            <ColumnDefinition Width="*" MinWidth="{StaticResource TranscriptMinWidth}" />
+          </Grid.ColumnDefinitions>
+
+          <views:NotesBrowserView Grid.Column="0" DataContext="{Binding Browser}" />
+
+          <GridSplitter Grid.Column="1"
+                        ResizeDirection="Columns"
+                        ResizeBehavior="PreviousAndNext"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" />
+
+          <views:LiveNotesView Grid.Column="2" DataContext="{Binding Document}" />
+        </Grid>
+
+        <Grid IsVisible="{Binding IsNotesPage}">
+          <views:NotesWorkspaceView DataContext="{Binding Notes}" />
+        </Grid>
+
+        <Grid IsVisible="{Binding IsInputsPage}"
+              IsEnabled="{Binding CanEditSessionMetadata}">
+          <views:InputSettingsView DataContext="{Binding Inputs}" />
+        </Grid>
+
+        <!--
+          ================================ Notification overlay ================================
+          This used to be an in-flow Auto row. Showing or hiding a banner therefore resized the
+          entire content area, which resized the transcript ScrollViewer's viewport WITHOUT
+          changing its offset — content silently slid out of view behind the banner. That was one
+          of the confirmed root causes of the transcript-scroll defect.
+
+          As a later sibling inside this `*`-sized cell it paints on top and takes no part in the
+          panes' sizing: the cell's width and height come from the parent's row/column
+          definitions, not from any child's desired size, so the Meeting page is measured against
+          exactly the same rectangle whether a toast is up or not.
+        -->
+        <ItemsControl ZIndex="10"
+                      ItemsSource="{Binding Notifications}"
+                      ItemTemplate="{StaticResource NotificationToastTemplate}"
+                      IsVisible="{Binding HasNotifications}"
+                      VerticalAlignment="Top"
+                      HorizontalAlignment="Right"
+                      Margin="{StaticResource ToastStackMargin}"
+                      MaxWidth="{StaticResource ToastStackMaxWidth}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Vertical" Spacing="{StaticResource Space3}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </Grid>
+    </Grid>
+
+    <views:StatusBarView Grid.Row="3" />
+  </Grid>
+</Window>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>WhisperNotes.App</RootNamespace>
+    <AssemblyName>WhisperNotes</AssemblyName>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
+    <PackageReference Include="TextMateSharp.Grammars" />
+    <!-- Markdown AST for the preview pane. Rendered into native Avalonia controls by
+         Views/MarkdownPreview.cs — deliberately not Avalonia.Controls.Markdown, which
+         pulls in the commercial AvaloniaUI.Licensing package. -->
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WhisperNotes.Core\WhisperNotes.Core.csproj" />
+  </ItemGroup>
+
+</Project>

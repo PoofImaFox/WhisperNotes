@@ -1,0 +1,40 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:WhisperNotes.App.Views.Controls">
+
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type ctl:InlineProgress}" TargetType="ctl:InlineProgress">
+      <Setter Property="BarWidth" Value="{DynamicResource ProgressBarWidth}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ctl:InlineProgress">
+          <Grid ColumnDefinitions="Auto,*"
+                ColumnSpacing="{DynamicResource Space2}"
+                VerticalAlignment="Center">
+            <!--
+              Width alone is enough here ONLY because App.axaml neutralises Fluent's MinWidth 200
+              under `ProgressBar:horizontal`. Fluent declares that floor under a pseudo-class, so
+              it binds at StyleTrigger priority and outranks a TemplateBinding — restating
+              MinWidth here does nothing, which is why it is not restated. A plain view can still
+              beat it with a local MinWidth attribute; a control template cannot.
+            -->
+            <ProgressBar Grid.Column="0"
+                         Width="{TemplateBinding BarWidth}"
+                         Height="{DynamicResource ProgressBarThickness}"
+                         VerticalAlignment="Center"
+                         Minimum="0"
+                         Maximum="1"
+                         Value="{TemplateBinding Fraction}"
+                         IsIndeterminate="{TemplateBinding IsIndeterminate}" />
+
+            <TextBlock Grid.Column="1"
+                       Classes="caption"
+                       VerticalAlignment="Center"
+                       Text="{TemplateBinding StatusText}"
+                       ToolTip.Tip="{TemplateBinding StatusText}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+</Styles>
