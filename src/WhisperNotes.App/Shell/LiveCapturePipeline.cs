@@ -18,7 +18,8 @@ internal sealed record LiveCaptureRun(
     NoteSession Session,
     IReadOnlyDictionary<string, ISpeakerAttributor> SpeakerAttributors,
     TranscriptionOptions Transcription,
-    ChunkingOptions Chunking);
+    ChunkingOptions Chunking,
+    DiarizationOptions Diarization);
 
 /// <summary>
 /// Capture -> engine -> disk -> UI, for however many inputs are rolling. Runs entirely off the UI
@@ -36,9 +37,10 @@ internal sealed class LiveCapturePipeline(
     IAudioCaptureSourceFactory captureSources,
     ITranscriberFactory transcribers,
     INoteRepository notes,
+    ISpeakerProfileStore speakerProfiles,
     Action<float> reportPeak,
     Action<NoteEntry> onEntryCommitted,
-    Action<IReadOnlyDictionary<string, string>> onSpeakerLabels,
+    Action<IReadOnlyDictionary<string, NoteEntry>> onSpeakerLabels,
     ShellNotificationCenter notifications)
 {
     /// <summary>
@@ -195,7 +197,8 @@ internal sealed class LiveCapturePipeline(
                         run.Session,
                         entriesBySource[input.Id],
                         attributor,
-                        qualifySpeakerNames ? input.DisplayName : null)
+                        qualifySpeakerNames ? input.DisplayName : null,
+                        run.Diarization.ProfileMatchThreshold)
                     .ConfigureAwait(false);
             }
             finally
@@ -222,7 +225,8 @@ internal sealed class LiveCapturePipeline(
         NoteSession session,
         IReadOnlyList<NoteEntry> entries,
         ISpeakerAttributor? speakerAttributor,
-        string? sourceName = null)
+        string? sourceName,
+        double profileMatchThreshold)
     {
         if (speakerAttributor is not { IsAvailable: true } ||
             speakerAttributor.Observed == 0 ||
@@ -234,12 +238,20 @@ internal sealed class LiveCapturePipeline(
         try
         {
             SpeakerTimeline timeline = await Task.Run(speakerAttributor.Build).ConfigureAwait(false);
-            if (!timeline.WorthLabelling)
+            await SpeakerAttribution
+                .IdentifyProfilesAsync(
+                    timeline,
+                    speakerProfiles,
+                    profileMatchThreshold,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (!timeline.WorthLabelling && !timeline.HasNamedProfiles)
             {
                 return;
             }
 
-            Dictionary<string, string> labels = [];
+            Dictionary<string, NoteEntry> labels = [];
             foreach (NoteEntry entry in entries)
             {
                 if (timeline.Label(entry.Offset, entry.EndOffset ?? entry.Offset) is { } speaker)
@@ -247,13 +259,21 @@ internal sealed class LiveCapturePipeline(
                     string label = string.IsNullOrWhiteSpace(sourceName)
                         ? speaker
                         : $"{sourceName} · {speaker}";
+                    SpeakerVoiceProfile? profile = timeline.Profile(
+                        entry.Offset,
+                        entry.EndOffset ?? entry.Offset);
+                    NoteEntry attributed = entry with
+                    {
+                        Speaker = label,
+                        SpeakerProfileId = profile?.Id,
+                    };
                     await notes
                         .UpdateEntryAsync(
                             session.Id,
-                            entry with { Speaker = label },
+                            attributed,
                             CancellationToken.None)
                         .ConfigureAwait(false);
-                    labels[entry.Id] = label;
+                    labels[entry.Id] = attributed;
                 }
             }
 

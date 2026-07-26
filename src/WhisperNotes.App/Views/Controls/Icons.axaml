@@ -5,7 +5,7 @@
     ============================================================================
     THE ICON SET — one source for every glyph in the app.
 
-    All seven are authored on the SAME 16x16 grid and are stroked, not filled:
+    Every icon is authored on the SAME 16x16 grid and is stroked, not filled:
     open paths, round caps, round joins, no fill. Icon fits the whole 16x16 box
     into its own Size box, so relative weight is preserved between glyphs — that
     only holds while every glyph shares the grid, so keep new ones on it.
@@ -30,6 +30,11 @@
 
     <!-- Dismiss / cancel / close. Three of the eight text glyphs were this one. -->
     <StreamGeometry x:Key="IconClose">M 12,4 L 4,12 M 4,4 L 12,12</StreamGeometry>
+
+    <!-- Native-window actions used by the custom MainWindow frame. -->
+    <StreamGeometry x:Key="IconMinimize">M 3,11.5 L 13,11.5</StreamGeometry>
+    <StreamGeometry x:Key="IconMaximize">M 3.5,3.5 L 12.5,3.5 L 12.5,12.5 L 3.5,12.5 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconRestore">M 5.5,3.5 L 12.5,3.5 L 12.5,10.5 M 10.5,5.5 L 3.5,5.5 L 3.5,12.5 L 10.5,12.5 Z</StreamGeometry>
 
     <!-- Settings. -->
     <StreamGeometry x:Key="IconSettings">M 8,5.6 A 2.4,2.4 0 1 0 8,10.4 A 2.4,2.4 0 1 0 8,5.6 M 8,1.6 L 8,3.2 M 8,12.8 L 8,14.4 M 1.6,8 L 3.2,8 M 12.8,8 L 14.4,8 M 3.47,3.47 L 4.82,4.82 M 11.18,11.18 L 12.53,12.53 M 12.53,3.47 L 11.18,4.82 M 4.82,11.18 L 3.47,12.53</StreamGeometry>

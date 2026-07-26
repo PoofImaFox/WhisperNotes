@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -28,6 +30,101 @@ public partial class MainWindow : Window
         //     handler on the way down from the window to the focused element, before anything can
         //     swallow it, so the shortcut works from anywhere in the shell.
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        PropertyChanged += OnWindowPropertyChanged;
+        UpdateWindowChrome(WindowState);
+    }
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            ToggleMaximizeRestore();
+        }
+        else
+        {
+            BeginMoveDrag(e);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnMinimizeClick(object? sender, RoutedEventArgs e) =>
+        WindowState = WindowState.Minimized;
+
+    private void OnMaximizeRestoreClick(object? sender, RoutedEventArgs e) =>
+        ToggleMaximizeRestore();
+
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
+
+    private void ToggleMaximizeRestore()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == WindowStateProperty)
+        {
+            UpdateWindowChrome(WindowState);
+        }
+    }
+
+    private void UpdateWindowChrome(WindowState state)
+    {
+        var isMaximized = state == WindowState.Maximized;
+
+        MaximizeIcon.IsVisible = !isMaximized;
+        RestoreIcon.IsVisible = isMaximized;
+        ResizeChrome.IsVisible = !isMaximized;
+        WindowFrame.BorderThickness = new Thickness(isMaximized ? 0 : 1);
+
+        var action = isMaximized ? "Restore down" : "Maximize";
+        ToolTip.SetTip(MaximizeRestoreButton, action);
+        AutomationProperties.SetName(MaximizeRestoreButton, $"{action} window");
+    }
+
+    private void OnResizeNorthWestPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.NorthWest, e);
+
+    private void OnResizeNorthPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.North, e);
+
+    private void OnResizeNorthEastPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.NorthEast, e);
+
+    private void OnResizeWestPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.West, e);
+
+    private void OnResizeEastPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.East, e);
+
+    private void OnResizeSouthWestPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.SouthWest, e);
+
+    private void OnResizeSouthPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.South, e);
+
+    private void OnResizeSouthEastPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        BeginResize(WindowEdge.SouthEast, e);
+
+    private void BeginResize(WindowEdge edge, PointerPressedEventArgs e)
+    {
+        if (WindowState != WindowState.Normal ||
+            !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        BeginResizeDrag(edge, e);
+        e.Handled = true;
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -49,6 +146,9 @@ public partial class MainWindow : Window
                 break;
             case Key.D3 or Key.NumPad3:
                 page = ShellPage.Inputs;
+                break;
+            case Key.D4 or Key.NumPad4:
+                page = ShellPage.Settings;
                 break;
             default:
                 return;

@@ -40,6 +40,7 @@ public sealed class WhisperNotesServices : IAsyncDisposable
         IMediaConverter media,
         IWavReader wavReader,
         ISpeakerAttributorFactory diarizers,
+        ISpeakerProfileStore speakerProfiles,
         Lazy<INoteRepository> notes,
         Lazy<INoteDocumentStore> documents,
         INoteExporter exporter,
@@ -55,10 +56,17 @@ public sealed class WhisperNotesServices : IAsyncDisposable
         Media = media;
         WavReader = wavReader;
         Diarizers = diarizers;
+        SpeakerProfiles = speakerProfiles;
         _notes = notes;
         _documents = documents;
         _recordedMedia = new Lazy<IRecordedMediaTranscriptionService>(() =>
-            new RecordedMediaTranscriptionService(Media, WavReader, Transcribers, Diarizers, Notes));
+            new RecordedMediaTranscriptionService(
+                Media,
+                WavReader,
+                Transcribers,
+                Diarizers,
+                Notes,
+                SpeakerProfiles));
         Exporter = exporter;
         AiAssistants = aiAssistants;
     }
@@ -85,6 +93,12 @@ public sealed class WhisperNotesServices : IAsyncDisposable
     /// is only worth loading for a run that actually asked for speaker labels.
     /// </summary>
     public ISpeakerAttributorFactory Diarizers { get; }
+
+    /// <summary>
+    /// Durable acoustic identities used to recognize named speakers across sessions. Kept separate
+    /// from settings because voiceprint vectors are data, not tuning preferences.
+    /// </summary>
+    public ISpeakerProfileStore SpeakerProfiles { get; }
 
     /// <summary>
     /// Builds an assistant for the current <see cref="AiSettings"/>. Held rather than resolved
@@ -131,10 +145,15 @@ public sealed class WhisperNotesServices : IAsyncDisposable
         var exporter = new MarkdownNoteExporter();
         var models = new WhisperModelStore(settings.ModelsRoot);
         var transcribers = new WhisperTranscriberFactory(models, downloadProgress);
+        ISettingsStore effectiveSettingsStore = settingsStore ?? new JsonSettingsStore();
+        string profilesPath = Path.Combine(
+            Path.GetDirectoryName(effectiveSettingsStore.SettingsPath)
+                ?? Path.GetDirectoryName(AppSettings.DefaultSettingsPath)!,
+            "speaker-profiles.json");
 
         return new WhisperNotesServices(
             settings,
-            settingsStore ?? new JsonSettingsStore(),
+            effectiveSettingsStore,
             new WasapiChannelEnumerator(),
             new WasapiCaptureSourceFactory(),
             models,
@@ -143,6 +162,7 @@ public sealed class WhisperNotesServices : IAsyncDisposable
             new FfmpegMediaConverter(settings.FfmpegPath),
             new WaveFileReaderService(),
             new OnnxSpeakerAttributorFactory(new SpeakerModelStore(settings.ModelsRoot), downloadProgress),
+            new JsonSpeakerProfileStore(profilesPath),
             new Lazy<INoteRepository>(() => new FileSystemNoteRepository(settings.NotesRoot, exporter)),
             new Lazy<INoteDocumentStore>(() => new FileSystemNoteDocumentStore(settings.NotesRoot)),
             exporter,
@@ -170,6 +190,8 @@ public sealed class WhisperNotesServices : IAsyncDisposable
         {
             await DisposeIfNeededAsync(_documents.Value).ConfigureAwait(false);
         }
+
+        await DisposeIfNeededAsync(SpeakerProfiles).ConfigureAwait(false);
     }
 
     private static async ValueTask DisposeIfNeededAsync(object service)

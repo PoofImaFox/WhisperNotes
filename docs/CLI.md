@@ -115,13 +115,13 @@ With `--keep-audio` the captured WAV is written to `<session>/audio/session.wav`
 
 **Speakers.** Diarization works out who spoke when. It runs offline, from a small voice-embedding
 model that turns each stretch of speech into a vector and groups the stretches that sound like the
-same person. What comes out is `Speaker 1`, `Speaker 2` and so on — never names. The model can tell
-two voices apart; it has no way to know whose they are, and a guessed name is worse than an honest
-number. Putting real names to them is a human's job, done afterwards in the notes. `--max-speakers`
-caps how many the clustering may report, and a recording with only one voice in it is left
-unlabelled, since prefixing every line of your own dictation with `Speaker 1:` is clutter in
-exchange for nothing. Tune the sensitivity with `Diarization.MergeThreshold` — raise it to merge
-more, lower it to split more.
+same person. New voices come out as `Speaker 1`, `Speaker 2` and so on. Names are supplied by a
+human in the desktop app, then retained in the local speaker-profile catalog so CLI and desktop
+recordings can recognize them later. Several separate voice profiles may share one name, which
+repairs false splits without discarding either voiceprint. `--max-speakers` caps how many clusters
+may be reported, and a recording with only one unknown voice is left unlabelled. Tune within-session
+clustering with `Diarization.MergeThreshold` and cross-session matching with
+`Diarization.ProfileMatchThreshold`.
 
 ## `whispernotes transcribe`
 
@@ -270,7 +270,7 @@ Keys, matched case-insensitively: `NotesRoot`, `ModelsRoot`, `Model`, `Language`
 `Gpu.Enabled`, `Gpu.Device`, `LastChannelId`, `DefaultProject`, `InitialPrompt`, `KeepSessionAudio`, `FfmpegPath`,
 `Chunking.MinChunkSeconds`, `Chunking.MaxChunkSeconds`, `Chunking.SilenceMilliseconds`,
 `Chunking.SilenceThreshold`, `Diarization.Enabled`, `Diarization.MaxSpeakers`,
-`Diarization.MergeThreshold`, `Diarization.MinObservationSeconds`,
+`Diarization.MergeThreshold`, `Diarization.ProfileMatchThreshold`, `Diarization.MinObservationSeconds`,
 `Diarization.MaxObservationSeconds`. Passing an empty value clears an optional setting back to its
 default.
 

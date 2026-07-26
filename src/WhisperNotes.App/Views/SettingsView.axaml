@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ctl="using:WhisperNotes.App.Views.Controls"
+             xmlns:vm="using:WhisperNotes.App.ViewModels"
+             xmlns:views="using:WhisperNotes.App.Views"
+             mc:Ignorable="d"
+             x:Class="WhisperNotes.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0"
+            Classes="toolbar"
+            Padding="{DynamicResource PadPane}">
+      <StackPanel Spacing="{DynamicResource Space1}">
+        <TextBlock Classes="h2" Text="Settings" />
+        <TextBlock Classes="caption"
+                   Text="Configure WhisperNotes and manage the information it remembers." />
+      </StackPanel>
+    </Border>
+
+    <TabControl Grid.Row="1"
+                Margin="16"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch">
+      <TabItem Header="Notes AI">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="720"
+                      Margin="0,0,0,16"
+                      HorizontalAlignment="Left"
+                      Spacing="{DynamicResource Space4}">
+            <StackPanel Spacing="{DynamicResource Space1}">
+              <TextBlock Classes="h2" Text="Notes AI" />
+              <TextBlock Classes="caption"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         Text="Choose the assistant used for note actions. Changes apply to open notes immediately." />
+            </StackPanel>
+            <views:AiSettingsView DataContext="{Binding Ai}" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Speaker identification">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="720"
+                      HorizontalAlignment="Left"
+                      Spacing="{DynamicResource Space4}">
+            <StackPanel Spacing="{DynamicResource Space1}">
+              <TextBlock Classes="h2" Text="Speaker identification" />
+              <TextBlock Classes="caption"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         Text="Saved voice profiles let WhisperNotes recognize people across meetings." />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="{DynamicResource Space1}">
+                <TextBlock FontWeight="SemiBold" Text="{Binding SpeakerProfileCountText}" />
+                <TextBlock Classes="caption"
+                           Text="{Binding SpeakerProfilesPath}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding SpeakerProfilesPath}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Classes="subtle"
+                      Content="Refresh"
+                      Command="{Binding RefreshSpeakerProfilesCommand}" />
+            </Grid>
+
+            <Border Classes="callout info" IsVisible="{Binding HasNoSpeakerProfiles}">
+              <StackPanel Spacing="{DynamicResource Space2}">
+                <TextBlock FontWeight="SemiBold" Text="No saved voice profiles yet" />
+                <TextBlock Classes="caption"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           Text="Profiles are learned locally from detected voices. Name a detected speaker in a meeting to teach the matching profile. If separate detections belong to one person, give both profiles the same name; they remain distinct while future matches use that shared name." />
+              </StackPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding SpeakerProfiles}"
+                          IsVisible="{Binding HasSpeakerProfiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SpeakerProfileItemViewModel">
+                  <Border Classes="pane" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="*,Auto"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="{DynamicResource Space3}"
+                          RowSpacing="{DynamicResource Space2}">
+                      <ctl:LabeledField Grid.Row="0"
+                                        Header="Display name"
+                                        HelpText="Names do not have to be unique. Changes here apply to future detections; rename from a meeting to update that transcript too.">
+                        <TextBox Text="{Binding Name}"
+                                 PlaceholderText="Name this detected voice"
+                                 MinWidth="280" />
+                      </ctl:LabeledField>
+                      <Button Grid.Row="0"
+                              Grid.Column="1"
+                              VerticalAlignment="Bottom"
+                              Content="Save name"
+                              Command="{Binding SaveNameCommand}" />
+
+                      <StackPanel Grid.Row="1"
+                                  Grid.ColumnSpan="2"
+                                  Orientation="Horizontal"
+                                  Spacing="{DynamicResource Space3}">
+                        <TextBlock Classes="caption" Text="{Binding ShortId, StringFormat='Profile {0}'}" />
+                        <TextBlock Classes="caption" Text="{Binding DimensionsText}" />
+                        <TextBlock Classes="caption" Text="{Binding CreatedText, StringFormat='First seen {0}'}" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="About">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="720"
+                      HorizontalAlignment="Left"
+                      Spacing="{DynamicResource Space5}">
+            <StackPanel Spacing="{DynamicResource Space2}">
+              <TextBlock Classes="h1" Text="WhisperNotes" />
+              <TextBlock Classes="caption"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         Text="Local-first meeting capture, transcription, and durable notes." />
+            </StackPanel>
+
+            <Border Classes="pane">
+              <Grid ColumnDefinitions="Auto,*"
+                    RowDefinitions="Auto,Auto,Auto"
+                    ColumnSpacing="{DynamicResource Space5}"
+                    RowSpacing="{DynamicResource Space3}">
+                <TextBlock Grid.Row="0" Classes="label" Text="VERSION" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VersionText}" />
+                <TextBlock Grid.Row="1" Classes="label" Text="RUNTIME" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RuntimeText}" />
+                <TextBlock Grid.Row="2" Classes="label" Text="PLATFORM" />
+                <TextBlock Grid.Row="2"
+                           Grid.Column="1"
+                           Text="{Binding PlatformText}"
+                           TextWrapping="Wrap"
+                           TextTrimming="None" />
+              </Grid>
+            </Border>
+
+            <TextBlock Classes="caption"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       Text="Audio and voice profiles always remain on this device. A hosted AI provider receives only the note text you explicitly send to an action." />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>

@@ -21,7 +21,10 @@ public enum ShellPage
     Notes,
 
     /// <summary>Audio endpoints captured and transcribed together.</summary>
-    Inputs
+    Inputs,
+
+    /// <summary>Application configuration, saved speakers, and build information.</summary>
+    Settings
 }
 
 /// <summary>
@@ -66,13 +69,20 @@ public sealed partial class MainWindowViewModel
             services.ModelStore,
             _notifications.Post);
 
-        Document = new SessionDocumentViewModel(services.Notes, _notifications.Post);
+        Document = new SessionDocumentViewModel(
+            services.Notes,
+            _notifications.Post,
+            services.SpeakerProfiles);
         Browser = new NotesBrowserViewModel(services.Notes, _notifications.Post);
 
         // Built eagerly and kept for the life of the window: the Notes page holds an editor with
         // an undo stack and unsaved edits, so it must never be rebuilt by a page switch.
         Notes = new NotesWorkspaceViewModel(services, _notifications.Report);
         Inputs = new InputSettingsViewModel(services.ChannelEnumerator, services.Settings, _notifications.Report);
+        SettingsPage = new SettingsViewModel(
+            Notes.AiSettings,
+            services.SpeakerProfiles,
+            _notifications.Post);
 
         // The toolbar meter is a pre-flight for the whole enabled set, not for one picker row.
         Capture.MonitoredChannelsProvider = () => Inputs.EnabledChannels;
@@ -103,6 +113,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>Durable multi-input configuration used by the next recording.</summary>
     public InputSettingsViewModel Inputs { get; }
 
+    /// <summary>Application settings. Shares the note editor's live AI configuration.</summary>
+    public SettingsViewModel SettingsPage { get; }
+
     public ObservableCollection<NotificationViewModel> Notifications => _notifications.Items;
 
     /// <summary>
@@ -119,6 +132,7 @@ public sealed partial class MainWindowViewModel
     [NotifyPropertyChangedFor(nameof(IsMeetingPage))]
     [NotifyPropertyChangedFor(nameof(IsNotesPage))]
     [NotifyPropertyChangedFor(nameof(IsInputsPage))]
+    [NotifyPropertyChangedFor(nameof(IsSettingsPage))]
     public partial ShellPage SelectedPage { get; set; }
 
     public bool IsMeetingPage => SelectedPage == ShellPage.Meeting;
@@ -126,6 +140,8 @@ public sealed partial class MainWindowViewModel
     public bool IsNotesPage => SelectedPage == ShellPage.Notes;
 
     public bool IsInputsPage => SelectedPage == ShellPage.Inputs;
+
+    public bool IsSettingsPage => SelectedPage == ShellPage.Settings;
 
     /// <summary>
     /// True when the app fell back to in-process fakes after a startup failure. Constant for the
@@ -271,9 +287,16 @@ public sealed partial class MainWindowViewModel
         StatusMessage = "Ready.";
     }
 
-    /// <summary>Rail / Ctrl+1 / Ctrl+2 / Ctrl+3. Pure view state — nothing is torn down or rebuilt.</summary>
+    /// <summary>Rail page selection. Pure view state — nothing is torn down or rebuilt.</summary>
     [RelayCommand]
-    private void GoToPage(ShellPage page) => SelectedPage = page;
+    private void GoToPage(ShellPage page)
+    {
+        SelectedPage = page;
+        if (page == ShellPage.Settings)
+        {
+            SettingsPage.RefreshSpeakerProfilesCommand.Execute(null);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanToggleRecording))]
     private Task ToggleRecordingAsync() => _recording.ToggleAsync();

@@ -15,6 +15,8 @@
         Height="880"
         MinWidth="1040"
         MinHeight="640"
+        CanResize="True"
+        WindowDecorations="None"
         WindowStartupLocation="CenterScreen">
 
   <!--
@@ -44,6 +46,7 @@
     <KeyBinding Gesture="Ctrl+D1" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Meeting}" />
     <KeyBinding Gesture="Ctrl+D2" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Notes}" />
     <KeyBinding Gesture="Ctrl+D3" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Inputs}" />
+    <KeyBinding Gesture="Ctrl+D4" Command="{Binding GoToPageCommand}" CommandParameter="{x:Static vm:ShellPage.Settings}" />
   </Window.KeyBindings>
 
   <Window.Resources>
@@ -66,6 +69,14 @@
          is the shell's business. -->
     <Thickness x:Key="ToastStackMargin">0,12,16,0</Thickness>
     <x:Double x:Key="ToastStackMaxWidth">420</x:Double>
+
+    <!-- Custom window chrome. The transparent grip is deliberately wider than the painted
+         hairline so edge and corner resizing remains easy at high display densities. -->
+    <x:Double x:Key="TitleBarHeight">36</x:Double>
+    <x:Double x:Key="WindowControlWidth">46</x:Double>
+    <x:Double x:Key="WindowControlIconSize">14</x:Double>
+    <x:Double x:Key="ResizeGripSize">6</x:Double>
+    <Thickness x:Key="WindowTitlePadding">12,0,0,0</Thickness>
   </Window.Resources>
 
   <Window.Styles>
@@ -140,11 +151,138 @@
     <Style Selector="GridSplitter:pointerover">
       <Setter Property="Background" Value="{DynamicResource AccentBase}" />
     </Style>
+
+    <!-- ====================================================================================
+         Custom window chrome
+         ==================================================================================== -->
+    <Style Selector="Button.window-control">
+      <Setter Property="Width" Value="{StaticResource WindowControlWidth}" />
+      <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.window-control /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Button.window-control:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHover}" />
+    </Style>
+
+    <Style Selector="Button.window-control:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfacePressed}" />
+    </Style>
+
+    <Style Selector="Button.window-control:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBase}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Button.window-control.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource DangerBase}" />
+    </Style>
+
+    <Style Selector="Button.window-control.close:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource DangerPressed}" />
+    </Style>
+
+    <Style Selector="Button.window-control ctl|Icon">
+      <Setter Property="Stroke" Value="{DynamicResource TextSecondary}" />
+    </Style>
+
+    <Style Selector="Button.window-control:pointerover ctl|Icon">
+      <Setter Property="Stroke" Value="{DynamicResource TextPrimary}" />
+    </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <!--
+    The native frame is disabled above. This outer Border is the visible window edge; the
+    transparent overlay after it owns the eight native resize directions.
+  -->
+  <Grid>
+    <Border x:Name="WindowFrame"
+            Background="{DynamicResource SurfaceSunken}"
+            BorderBrush="{DynamicResource BorderDefault}"
+            BorderThickness="1">
+      <Grid RowDefinitions="Auto,*">
 
-    <views:CaptureBarView Grid.Row="0" />
+        <Border Grid.Row="0"
+                Height="{StaticResource TitleBarHeight}"
+                Background="{DynamicResource SurfaceSunken}"
+                BorderBrush="{DynamicResource BorderSubtle}"
+                BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <!-- Buttons are outside this hit target, so clicks on window controls can never
+                 accidentally initiate a move. Double-clicking here toggles maximize/restore. -->
+            <Border Grid.Column="0"
+                    Background="Transparent"
+                    Padding="{StaticResource WindowTitlePadding}"
+                    PointerPressed="OnTitleBarPointerPressed">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="{StaticResource Space2}"
+                          VerticalAlignment="Center">
+                <ctl:Icon Data="{DynamicResource IconMic}"
+                          Size="{StaticResource WindowControlIconSize}"
+                          Stroke="{DynamicResource AccentBase}" />
+                <TextBlock Text="{Binding WindowTitle}"
+                           FontSize="{StaticResource FontSizeSm}"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+              <Button Classes="window-control"
+                      IsTabStop="False"
+                      Click="OnMinimizeClick"
+                      ToolTip.Tip="Minimize"
+                      AutomationProperties.Name="Minimize window">
+                <ctl:Icon Data="{DynamicResource IconMinimize}"
+                          Size="{StaticResource WindowControlIconSize}" />
+              </Button>
+
+              <Button x:Name="MaximizeRestoreButton"
+                      Classes="window-control"
+                      IsTabStop="False"
+                      Click="OnMaximizeRestoreClick"
+                      ToolTip.Tip="Maximize"
+                      AutomationProperties.Name="Maximize window">
+                <Grid>
+                  <ctl:Icon x:Name="MaximizeIcon"
+                            Data="{DynamicResource IconMaximize}"
+                            Size="{StaticResource WindowControlIconSize}" />
+                  <ctl:Icon x:Name="RestoreIcon"
+                            Data="{DynamicResource IconRestore}"
+                            Size="{StaticResource WindowControlIconSize}"
+                            IsVisible="False" />
+                </Grid>
+              </Button>
+
+              <Button Classes="window-control close"
+                      IsTabStop="False"
+                      Click="OnCloseClick"
+                      ToolTip.Tip="Close"
+                      AutomationProperties.Name="Close window">
+                <ctl:Icon Data="{DynamicResource IconClose}"
+                          Size="{StaticResource WindowControlIconSize}" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto">
+
+          <views:CaptureBarView Grid.Row="0" />
 
     <!--
       Sample-data chip. AppServices.IsSampleData is fixed for the life of the process, so this
@@ -179,7 +317,8 @@
               Background="{DynamicResource SurfaceSunken}"
               BorderBrush="{DynamicResource BorderSubtle}"
               BorderThickness="0,0,1,0">
-        <StackPanel Orientation="Vertical">
+        <Grid RowDefinitions="*,Auto">
+          <StackPanel Grid.Row="0" Orientation="Vertical">
 
           <Button Classes="nav"
                   Classes.selected="{Binding IsMeetingPage}"
@@ -261,7 +400,29 @@
               </StackPanel>
             </Grid>
           </Button>
-        </StackPanel>
+          </StackPanel>
+
+          <Button Grid.Row="1"
+                  Classes="nav"
+                  Classes.selected="{Binding IsSettingsPage}"
+                  Command="{Binding GoToPageCommand}"
+                  CommandParameter="{x:Static vm:ShellPage.Settings}"
+                  ToolTip.Tip="Settings — AI, saved speakers, and app information  (Ctrl+4)">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Grid.Column="0"
+                      Width="{StaticResource SelectionBarWidth}"
+                      Background="{DynamicResource AccentBase}"
+                      IsVisible="{Binding IsSettingsPage}" />
+
+              <StackPanel Grid.Column="1"
+                          Margin="{StaticResource NavItemPadding}"
+                          Spacing="{StaticResource Space1}">
+                <ctl:Icon Data="{DynamicResource IconSettings}" Size="{StaticResource NavGlyphSize}" />
+                <TextBlock Text="Settings" />
+              </StackPanel>
+            </Grid>
+          </Button>
+        </Grid>
       </Border>
 
       <!-- ============================ Page host (single cell) ============================ -->
@@ -305,6 +466,10 @@
           <views:InputSettingsView DataContext="{Binding Inputs}" />
         </Grid>
 
+        <Grid IsVisible="{Binding IsSettingsPage}">
+          <views:SettingsView DataContext="{Binding SettingsPage}" />
+        </Grid>
+
         <!--
           ================================ Notification overlay ================================
           This used to be an in-flow Auto row. Showing or hiding a banner therefore resized the
@@ -334,6 +499,62 @@
       </Grid>
     </Grid>
 
-    <views:StatusBarView Grid.Row="3" />
+          <views:StatusBarView Grid.Row="3" />
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- Keep these last so their transparent hit targets sit above the frame and content. -->
+    <Grid x:Name="ResizeChrome" ZIndex="100">
+      <Border Width="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Left"
+              Background="Transparent"
+              Cursor="SizeWestEast"
+              PointerPressed="OnResizeWestPointerPressed" />
+      <Border Width="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Right"
+              Background="Transparent"
+              Cursor="SizeWestEast"
+              PointerPressed="OnResizeEastPointerPressed" />
+      <Border Height="{StaticResource ResizeGripSize}"
+              VerticalAlignment="Top"
+              Background="Transparent"
+              Cursor="SizeNorthSouth"
+              PointerPressed="OnResizeNorthPointerPressed" />
+      <Border Height="{StaticResource ResizeGripSize}"
+              VerticalAlignment="Bottom"
+              Background="Transparent"
+              Cursor="SizeNorthSouth"
+              PointerPressed="OnResizeSouthPointerPressed" />
+
+      <Border Width="{StaticResource ResizeGripSize}"
+              Height="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Background="Transparent"
+              Cursor="TopLeftCorner"
+              PointerPressed="OnResizeNorthWestPointerPressed" />
+      <Border Width="{StaticResource ResizeGripSize}"
+              Height="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Top"
+              Background="Transparent"
+              Cursor="TopRightCorner"
+              PointerPressed="OnResizeNorthEastPointerPressed" />
+      <Border Width="{StaticResource ResizeGripSize}"
+              Height="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Background="Transparent"
+              Cursor="BottomLeftCorner"
+              PointerPressed="OnResizeSouthWestPointerPressed" />
+      <Border Width="{StaticResource ResizeGripSize}"
+              Height="{StaticResource ResizeGripSize}"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Bottom"
+              Background="Transparent"
+              Cursor="BottomRightCorner"
+              PointerPressed="OnResizeSouthEastPointerPressed" />
+    </Grid>
   </Grid>
 </Window>

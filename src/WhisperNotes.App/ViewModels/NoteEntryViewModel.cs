@@ -99,6 +99,20 @@ public sealed partial class NoteEntryViewModel : ObservableObject
         return _entry;
     }
 
+    /// <summary>Adopts both the display label and the durable acoustic profile behind it.</summary>
+    public NoteEntry WithSpeaker(string? speaker, string? speakerProfileId)
+    {
+        _entry = _entry with
+        {
+            Speaker = speaker,
+            SpeakerProfileId = speakerProfileId,
+        };
+
+        OnPropertyChanged(nameof(Speaker));
+        OnPropertyChanged(nameof(HasSpeaker));
+        return _entry;
+    }
+
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void BeginEdit()
     {

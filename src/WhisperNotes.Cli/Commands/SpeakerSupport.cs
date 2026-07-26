@@ -109,7 +109,15 @@ internal static class SpeakerSupport
             SpeakerTimeline timeline = await Task.Run(attributor.Build).ConfigureAwait(false);
             indicator.Complete(1, Format.Count(timeline.SpeakerCount, "voice", "voices"));
 
-            if (!timeline.WorthLabelling)
+            await SpeakerAttribution
+                .IdentifyProfilesAsync(
+                    timeline,
+                    services.SpeakerProfiles,
+                    services.Settings.ToDiarizationOptions().ProfileMatchThreshold,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (!timeline.WorthLabelling && !timeline.HasNamedProfiles)
             {
                 console.Field("speakers", "one voice throughout — left unlabelled", labelWidth);
                 return timeline;

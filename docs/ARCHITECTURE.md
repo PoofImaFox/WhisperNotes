@@ -75,6 +75,7 @@ decode loop (per live or imported audio chunk)
         embed the same audio it came from      (ISpeakerAttributor.Observe)
    -> once the session is complete:
         cluster the voice prints               (ISpeakerAttributor.Build -> SpeakerTimeline)
+        match/store cluster voiceprints         (ISpeakerProfileStore)
         stamp Speaker onto the written lines   (SpeakerAttribution.ApplyAsync)
    -> finalize, so notes.md renders with the labels
 ```
@@ -100,10 +101,17 @@ splitting its text would need word-level timings we do not have. Sampling a long
 could only produce several votes for the one label it was going to get anyway, at quadratic cost in
 the clustering.
 
-The result is a `SpeakerTimeline` of numbered speakers — never names. Clustering knows that two
-stretches of audio came from the same voice and nothing more, so the export says "Speaker 2" until a
-human recognises the voice and renames it. A recording with one voice throughout is left unlabelled
-rather than having every line prefixed with "Speaker 1:", which would be clutter for no information.
+The result is a `SpeakerTimeline` of numbered session-local speakers plus one normalized
+representative voiceprint per cluster. `ISpeakerProfileStore` compares those representatives with
+the local catalog. An unnamed match stays "Speaker 2"; a named match uses the saved display name.
+A recording with one unknown voice throughout is left unlabelled rather than prefixing every line
+with "Speaker 1", while a known single voice may be labelled with its useful name.
+
+Profile identity and display name are deliberately separate. Each acoustic profile has a stable
+ID, stored on attributed `NoteEntry` records, and several IDs may carry the same name. Renaming a
+false-split cluster to an existing person's name therefore retains both voiceprints instead of
+averaging or replacing either one. `speaker-profiles.json` is written atomically beside
+`settings.json`; voiceprints never leave the machine.
 
 ## On-disk layout
 
@@ -193,7 +201,7 @@ The interfaces in `Core` are the seams between components. They are already defi
 - `Transcription/TranscriptionContracts.cs` — `ITranscriber`, `IWhisperModelStore`, `ILiveTranscriptionEngine`
 - `Transcription/ParallelTranscriptionContracts.cs` — `IParallelLiveTranscriptionEngine`, sourced input/output records
 - `Media/MediaContracts.cs` — `IMediaConverter`, `IWavReader`
-- `Diarization/DiarizationContracts.cs` — `ISpeakerAttributor`, `ISpeakerAttributorFactory`, `ISpeakerEmbedder`, `SpeakerTimeline`
+- `Diarization/DiarizationContracts.cs` and `SpeakerProfiles.cs` — diarization, timelines, and durable local voice profiles
 - `Notes/NoteContracts.cs` — `INoteRepository`, `INoteExporter`
 - `Notes/Documents/NoteDocumentContracts.cs` — `INoteDocumentStore`, `NoteDocument`, `NoteRevision`
 - `Notes/Exporting/NoteExportContracts.cs` — `INoteExportService`, `NoteExportArtifact`, `NoteExportFormat`

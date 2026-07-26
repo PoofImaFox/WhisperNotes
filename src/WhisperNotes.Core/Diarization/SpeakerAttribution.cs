@@ -30,13 +30,23 @@ public static class SpeakerAttribution
         string sessionId,
         IEnumerable<NoteEntry> entries,
         SpeakerTimeline timeline,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ISpeakerProfileStore? profiles = null,
+        double profileMatchThreshold = 0.35)
     {
         ArgumentNullException.ThrowIfNull(notes);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
         ArgumentNullException.ThrowIfNull(timeline);
 
-        if (!timeline.WorthLabelling || entries is null)
+        if (entries is null)
+        {
+            return 0;
+        }
+
+        await IdentifyProfilesAsync(timeline, profiles, profileMatchThreshold, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!timeline.WorthLabelling && !timeline.HasNamedProfiles)
         {
             return 0;
         }
@@ -60,12 +70,67 @@ public static class SpeakerAttribution
                 continue;
             }
 
-            await notes.UpdateEntryAsync(sessionId, entry with { Speaker = label }, cancellationToken)
+            SpeakerVoiceProfile? profile = timeline.Profile(
+                entry.Offset,
+                entry.EndOffset ?? entry.Offset);
+
+            await notes.UpdateEntryAsync(
+                    sessionId,
+                    entry with
+                    {
+                        Speaker = label,
+                        SpeakerProfileId = profile?.Id,
+                    },
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             labelled++;
         }
 
         return labelled;
+    }
+
+    /// <summary>
+    /// Resolves every cluster voiceprint against the durable local catalog. Pipelines that add
+    /// source-qualified labels can call this without delegating their label formatting.
+    /// </summary>
+    public static async Task IdentifyProfilesAsync(
+        SpeakerTimeline timeline,
+        ISpeakerProfileStore? profiles,
+        double matchThreshold,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(timeline);
+
+        if (profiles is null)
+        {
+            return;
+        }
+
+        for (var speaker = 0; speaker < timeline.SpeakerCount; speaker++)
+        {
+            if (!timeline.TryGetVoicePrint(speaker, out ReadOnlyMemory<float> voicePrint))
+            {
+                continue;
+            }
+
+            try
+            {
+                SpeakerVoiceProfile profile = await profiles
+                    .IdentifyAsync(voicePrint, matchThreshold, cancellationToken)
+                    .ConfigureAwait(false);
+
+                timeline.SetProfile(speaker, profile);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                // Durable identity is enrichment on top of diarization. A damaged or unwritable
+                // profile file must not cost the session-local "Speaker N" labels.
+            }
+        }
     }
 }

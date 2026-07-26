@@ -29,6 +29,11 @@ public enum NoteEntryKind
 /// span, and for dictation captured before spans were recorded — readers must treat it as unknown
 /// rather than as zero.
 /// </param>
+/// <param name="SpeakerProfileId">
+/// Durable identity of the acoustic voice profile behind <paramref name="Speaker"/>. The display
+/// name may change and multiple distinct profiles may deliberately share it, so callers must use
+/// this id rather than the name when assigning a corrected identity.
+/// </param>
 public sealed record NoteEntry(
     string Id,
     DateTimeOffset TimestampUtc,
@@ -37,7 +42,8 @@ public sealed record NoteEntry(
     string Text,
     string? Speaker = null,
     float? Confidence = null,
-    TimeSpan? EndOffset = null);
+    TimeSpan? EndOffset = null,
+    string? SpeakerProfileId = null);
 
 /// <summary>A single recording/dictation session — one meeting, one file.</summary>
 /// <param name="Id">Stable id; also the on-disk folder name.</param>

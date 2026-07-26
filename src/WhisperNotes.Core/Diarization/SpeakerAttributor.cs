@@ -135,7 +135,7 @@ internal sealed class SpeakerAttributor : ISpeakerAttributor
             turns.Add(new SpeakerTurn(start, end, speaker));
         }
 
-        return new SpeakerTimeline(turns, count);
+        return new SpeakerTimeline(turns, count, BuildVoicePrints(speakers, count));
     }
 
     public void Dispose()
@@ -151,6 +151,56 @@ internal sealed class SpeakerAttributor : ISpeakerAttributor
         _embeddings.Clear();
         _weights.Clear();
         _spans.Clear();
+    }
+
+    /// <summary>
+    /// Collapses all observations assigned to each cluster into one normalized, duration-weighted
+    /// voiceprint suitable for matching across sessions.
+    /// </summary>
+    private float[][] BuildVoicePrints(IReadOnlyList<int> speakers, int count)
+    {
+        if (count == 0 || _embeddings.Count == 0)
+        {
+            return [];
+        }
+
+        int dimensions = _embeddings[0].Length;
+        double[][] sums = Enumerable.Range(0, count)
+            .Select(_ => new double[dimensions])
+            .ToArray();
+
+        for (var observation = 0; observation < speakers.Count; observation++)
+        {
+            int speaker = speakers[observation];
+            float[] embedding = _embeddings[observation];
+            if (speaker < 0 || speaker >= sums.Length || embedding.Length != dimensions)
+            {
+                continue;
+            }
+
+            double weight = _weights[observation];
+            for (var dimension = 0; dimension < dimensions; dimension++)
+            {
+                sums[speaker][dimension] += embedding[dimension] * weight;
+            }
+        }
+
+        float[][] voicePrints = new float[count][];
+        for (var speaker = 0; speaker < count; speaker++)
+        {
+            double magnitude = Math.Sqrt(sums[speaker].Sum(value => value * value));
+            if (magnitude <= 0 || !double.IsFinite(magnitude))
+            {
+                voicePrints[speaker] = [];
+                continue;
+            }
+
+            voicePrints[speaker] = sums[speaker]
+                .Select(value => (float)(value / magnitude))
+                .ToArray();
+        }
+
+        return voicePrints;
     }
 
     /// <summary>

@@ -73,6 +73,9 @@ public sealed class AppSettings
     public static string DefaultSettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WhisperNotes", "settings.json");
 
+    public static string DefaultSpeakerProfilesPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WhisperNotes", "speaker-profiles.json");
+
     public TranscriptionOptions ToTranscriptionOptions() =>
         new(Model, Language, Threads, Translate: false, InitialPrompt, Gpu.Enabled, Gpu.Device);
 
@@ -87,6 +90,7 @@ public sealed class AppSettings
         Enabled = Diarization.Enabled,
         MaxSpeakers = Diarization.MaxSpeakers,
         MergeThreshold = Diarization.MergeThreshold,
+        ProfileMatchThreshold = Diarization.ProfileMatchThreshold,
         MinObservation = TimeSpan.FromSeconds(Diarization.MinObservationSeconds),
         MaxObservation = TimeSpan.FromSeconds(Diarization.MaxObservationSeconds)
     };
@@ -192,6 +196,7 @@ public sealed class DiarizationSettings
 
     /// <summary>Cosine distance, so 0..2 rather than 0..1 — see <see cref="DiarizationOptions.MergeThreshold"/>.</summary>
     public double MergeThreshold { get; set; } = 0.6;
+    public double ProfileMatchThreshold { get; set; } = 0.35;
     public double MinObservationSeconds { get; set; } = 1.2;
     public double MaxObservationSeconds { get; set; } = 8;
 }

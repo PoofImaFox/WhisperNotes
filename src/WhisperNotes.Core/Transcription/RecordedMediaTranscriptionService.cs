@@ -19,13 +19,15 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
     private readonly ITranscriberFactory _transcribers;
     private readonly ISpeakerAttributorFactory _diarizers;
     private readonly INoteRepository _notes;
+    private readonly ISpeakerProfileStore? _speakerProfiles;
 
     public RecordedMediaTranscriptionService(
         IMediaConverter media,
         IWavReader wavReader,
         ITranscriberFactory transcribers,
         ISpeakerAttributorFactory diarizers,
-        INoteRepository notes)
+        INoteRepository notes,
+        ISpeakerProfileStore? speakerProfiles = null)
     {
         ArgumentNullException.ThrowIfNull(media);
         ArgumentNullException.ThrowIfNull(wavReader);
@@ -38,6 +40,7 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
         _transcribers = transcribers;
         _diarizers = diarizers;
         _notes = notes;
+        _speakerProfiles = speakerProfiles;
     }
 
     public async Task<RecordedMediaTranscriptionResult> TranscribeAsync(
@@ -85,6 +88,7 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
                 plan.Session,
                 written,
                 attributor,
+                request.Diarization.ProfileMatchThreshold,
                 progress).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -94,6 +98,7 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
                 plan.Session,
                 written,
                 attributor,
+                request.Diarization.ProfileMatchThreshold,
                 progress).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -228,7 +233,7 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
     /// </summary>
     private static void MirrorSpeakerLabels(List<NoteEntry> written, SpeakerTimeline? timeline)
     {
-        if (timeline is not { WorthLabelling: true })
+        if (timeline is null || (!timeline.WorthLabelling && !timeline.HasNamedProfiles))
         {
             return;
         }
@@ -238,7 +243,13 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
             NoteEntry entry = written[i];
             if (timeline.Label(entry.Offset, entry.EndOffset ?? entry.Offset) is { } speaker)
             {
-                written[i] = entry with { Speaker = speaker };
+                written[i] = entry with
+                {
+                    Speaker = speaker,
+                    SpeakerProfileId = timeline
+                        .Profile(entry.Offset, entry.EndOffset ?? entry.Offset)?
+                        .Id,
+                };
             }
         }
     }
@@ -355,6 +366,7 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
         NoteSession session,
         IReadOnlyList<NoteEntry> entries,
         ISpeakerAttributor? attributor,
+        double profileMatchThreshold,
         IProgress<RecordedMediaTranscriptionProgress>? progress)
     {
         if (attributor is not { IsAvailable: true } ||
@@ -371,10 +383,25 @@ public sealed class RecordedMediaTranscriptionService : IRecordedMediaTranscript
         try
         {
             SpeakerTimeline timeline = await Task.Run(attributor.Build).ConfigureAwait(false);
-            if (timeline.WorthLabelling)
+            await SpeakerAttribution
+                .IdentifyProfilesAsync(
+                    timeline,
+                    _speakerProfiles,
+                    profileMatchThreshold,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (timeline.WorthLabelling || timeline.HasNamedProfiles)
             {
                 await SpeakerAttribution
-                    .ApplyAsync(_notes, session.Id, entries, timeline, CancellationToken.None)
+                    .ApplyAsync(
+                        _notes,
+                        session.Id,
+                        entries,
+                        timeline,
+                        CancellationToken.None,
+                        profiles: null,
+                        profileMatchThreshold: profileMatchThreshold)
                     .ConfigureAwait(false);
             }
 

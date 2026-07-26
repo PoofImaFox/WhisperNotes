@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WhisperNotes.Core.Diarization;
 using WhisperNotes.Core.Notes;
 
 namespace WhisperNotes.App.ViewModels;
@@ -14,11 +15,16 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
 {
     private readonly INoteRepository _notes;
     private readonly Action<string, string, NotificationSeverity> _notify;
+    private readonly ISpeakerProfileStore? _speakerProfiles;
 
-    public SessionDocumentViewModel(INoteRepository notes, Action<string, string, NotificationSeverity> notify)
+    public SessionDocumentViewModel(
+        INoteRepository notes,
+        Action<string, string, NotificationSeverity> notify,
+        ISpeakerProfileStore? speakerProfiles = null)
     {
         _notes = notes;
         _notify = notify;
+        _speakerProfiles = speakerProfiles;
     }
 
     /// <summary>Raised after an entry is appended so the view can follow the tail.</summary>
@@ -171,13 +177,13 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
     /// Refreshes the on-screen rows after end-of-session diarization has already persisted the
     /// labels. The mapping is by entry id because typed notes may sit between dictated lines.
     /// </summary>
-    public void ApplySpeakerLabels(IReadOnlyDictionary<string, string> labels)
+    public void ApplySpeakerLabels(IReadOnlyDictionary<string, NoteEntry> labels)
     {
         foreach (NoteEntryViewModel entry in Entries)
         {
-            if (labels.TryGetValue(entry.Entry.Id, out string? speaker))
+            if (labels.TryGetValue(entry.Entry.Id, out NoteEntry? updated))
             {
-                entry.WithSpeaker(speaker);
+                entry.WithSpeaker(updated.Speaker, updated.SpeakerProfileId);
             }
         }
 
@@ -273,6 +279,8 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
 
         if (applied > 0)
         {
+            await RenameProfilesAsync(affected.Take(applied), name).ConfigureAwait(true);
+
             try
             {
                 // Once for the whole rename: notes.md is rebuilt from the transcript every time, so
@@ -286,6 +294,46 @@ public sealed partial class SessionDocumentViewModel : ObservableObject
         }
 
         RefreshSpeakers(preferred: name);
+    }
+
+    private async Task RenameProfilesAsync(
+        IEnumerable<NoteEntryViewModel> renamedEntries,
+        string name)
+    {
+        if (_speakerProfiles is null)
+        {
+            return;
+        }
+
+        string[] profileIds = renamedEntries
+            .Select(entry => entry.Entry.SpeakerProfileId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        List<string> failures = [];
+        foreach (string profileId in profileIds)
+        {
+            try
+            {
+                await _speakerProfiles
+                    .RenameAsync(profileId, name, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex.Message);
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            _notify(
+                "Transcript renamed, but a voice profile was not updated",
+                string.Join(Environment.NewLine, failures),
+                NotificationSeverity.Warning);
+        }
     }
 
     /// <summary>

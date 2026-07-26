@@ -32,6 +32,7 @@ internal sealed class RecordingSessionController(
         services.CaptureSourceFactory,
         services.TranscriberFactory,
         services.Notes,
+        services.SpeakerProfiles,
         capture.Meter.Report,
         entry =>
         {
@@ -208,7 +209,8 @@ internal sealed class RecordingSessionController(
             session,
             attributors,
             settings.Transcription,
-            settings.Chunking);
+            settings.Chunking,
+            settings.Diarization);
 
         _recordingTask = Task.Run(() => _pipeline.RunAsync(run, token), CancellationToken.None);
         _ = WatchPipelineAsync(_recordingTask);

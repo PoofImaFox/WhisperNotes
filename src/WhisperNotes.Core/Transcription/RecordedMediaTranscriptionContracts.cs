@@ -41,7 +41,7 @@ public readonly record struct RecordedMediaTranscriptionProgress(
 /// <summary>The durable outcome of a recorded-media transcription.</summary>
 /// <param name="Session">The finalized session, including the media-derived duration.</param>
 /// <param name="Entries">Every line persisted before completion or cancellation.</param>
-/// <param name="Speakers">The anonymous speaker timeline, when diarization produced one.</param>
+/// <param name="Speakers">The speaker timeline and any locally matched profiles.</param>
 /// <param name="WasCancelled">
 /// True when cancellation stopped extraction or decoding after the session had been created.
 /// The partial session and all decoded lines are still finalized and returned.

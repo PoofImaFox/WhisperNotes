@@ -10,9 +10,9 @@ public readonly record struct SpeakerTurn(TimeSpan Start, TimeSpan End, int Spea
 }
 
 /// <summary>
-/// Who held the floor, and when, for one recording. Speakers are numbered, never named: the
-/// clustering knows that two stretches of audio came from the same voice, and nothing more. Putting
-/// a name to a number is a human's job, and the export says "Speaker 2" until someone does it.
+/// Who held the floor, and when, for one recording. Clustering produces numbered local speakers
+/// and representative voiceprints; profile matching may then attach a durable user-supplied name.
+/// Until that happens, the honest display form remains "Speaker 2".
 /// </summary>
 public sealed class SpeakerTimeline
 {
@@ -24,11 +24,25 @@ public sealed class SpeakerTimeline
     private static readonly TimeSpan NearestTurnTolerance = TimeSpan.FromSeconds(2);
 
     private readonly SpeakerTurn[] _turns;
+    private readonly float[][] _voicePrints;
+    private readonly SpeakerVoiceProfile?[] _profiles;
 
-    public SpeakerTimeline(IReadOnlyList<SpeakerTurn> turns, int speakerCount)
+    public SpeakerTimeline(
+        IReadOnlyList<SpeakerTurn> turns,
+        int speakerCount,
+        IReadOnlyList<float[]>? voicePrints = null)
     {
         _turns = turns is null ? [] : [.. turns.Where(t => t.End > t.Start).OrderBy(t => t.Start)];
         SpeakerCount = Math.Max(speakerCount, 0);
+        _voicePrints = new float[SpeakerCount][];
+        _profiles = new SpeakerVoiceProfile?[SpeakerCount];
+
+        for (var i = 0; i < _voicePrints.Length; i++)
+        {
+            _voicePrints[i] = voicePrints is not null && i < voicePrints.Count
+                ? [.. voicePrints[i]]
+                : [];
+        }
     }
 
     /// <summary>The result when diarization was switched off, unavailable, or found no speech.</summary>
@@ -48,6 +62,38 @@ public sealed class SpeakerTimeline
     /// "Speaker 1:" adds clutter in exchange for no information.
     /// </summary>
     public bool WorthLabelling => SpeakerCount > 1 && _turns.Length > 0;
+
+    /// <summary>
+    /// True when matching resolved at least one local cluster to a name the user supplied earlier.
+    /// A known single-speaker recording is useful to label even though an anonymous one is not.
+    /// </summary>
+    public bool HasNamedProfiles => _profiles.Any(profile => !string.IsNullOrWhiteSpace(profile?.Name));
+
+    /// <summary>
+    /// Retrieves the representative normalized voiceprint for one session-local speaker. Older
+    /// timelines and test doubles may not carry one, in which case this returns false.
+    /// </summary>
+    public bool TryGetVoicePrint(int speaker, out ReadOnlyMemory<float> voicePrint)
+    {
+        if (speaker >= 0 &&
+            speaker < _voicePrints.Length &&
+            _voicePrints[speaker].Length > 0)
+        {
+            voicePrint = _voicePrints[speaker];
+            return true;
+        }
+
+        voicePrint = ReadOnlyMemory<float>.Empty;
+        return false;
+    }
+
+    /// <summary>The durable profile matched to a local speaker, after profile identification.</summary>
+    public SpeakerVoiceProfile? ProfileFor(int speaker) =>
+        speaker >= 0 && speaker < _profiles.Length ? _profiles[speaker] : null;
+
+    /// <summary>The durable profile responsible for the supplied transcript span, if identified.</summary>
+    public SpeakerVoiceProfile? Profile(TimeSpan start, TimeSpan end) =>
+        Resolve(start, end) is { } speaker ? ProfileFor(speaker) : null;
 
     /// <summary>
     /// The speaker who did most of the talking across <paramref name="start"/>..<paramref name="end"/>,
@@ -101,7 +147,20 @@ public sealed class SpeakerTimeline
 
     /// <summary>Convenience for the transcription pipeline: the label to stamp on a line, or null.</summary>
     public string? Label(TimeSpan start, TimeSpan end) =>
-        Resolve(start, end) is { } speaker ? LabelFor(speaker) : null;
+        Resolve(start, end) is { } speaker
+            ? ProfileFor(speaker)?.Name ?? LabelFor(speaker)
+            : null;
+
+    internal void SetProfile(int speaker, SpeakerVoiceProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (speaker < 0 || speaker >= _profiles.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(speaker));
+        }
+
+        _profiles[speaker] = profile;
+    }
 
     /// <summary>
     /// A zero-length range, or one that falls entirely in a silence between turns, still wants an
@@ -199,6 +258,12 @@ public sealed record DiarizationOptions
     /// transcript reads as though one person said all of it, and no rename can pull them apart.
     /// </remarks>
     public double MergeThreshold { get; init; } = 0.6;
+
+    /// <summary>
+    /// Maximum cosine distance between a newly detected cluster and a durable voice profile before
+    /// the cluster is treated as a new acoustic identity.
+    /// </summary>
+    public double ProfileMatchThreshold { get; init; } = 0.35;
 
     /// <summary>
     /// Below this a line is not used as evidence of who anyone is; it gets its speaker from the

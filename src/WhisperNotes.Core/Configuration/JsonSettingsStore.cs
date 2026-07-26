@@ -165,6 +165,9 @@ public sealed class JsonSettingsStore : ISettingsStore
         settings.Diarization.MergeThreshold = settings.Diarization.MergeThreshold is > 0 and <= 2
             ? settings.Diarization.MergeThreshold
             : 0.65;
+        settings.Diarization.ProfileMatchThreshold = settings.Diarization.ProfileMatchThreshold is > 0 and <= 2
+            ? settings.Diarization.ProfileMatchThreshold
+            : 0.35;
         settings.Diarization.MinObservationSeconds = settings.Diarization.MinObservationSeconds > 0
             ? settings.Diarization.MinObservationSeconds
             : 0.35;

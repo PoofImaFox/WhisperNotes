@@ -44,8 +44,9 @@ Full command reference: [`docs/CLI.md`](docs/CLI.md). Design notes: [`docs/ARCHI
 
 ## The UI
 
-Three pages, on a nav rail down the left: **Meeting** (`Ctrl+1`), **Notes** (`Ctrl+2`), and
-**Inputs** (`Ctrl+3`). The
+Four pages, on a nav rail down the left: **Meeting** (`Ctrl+1`), **Notes** (`Ctrl+2`),
+**Inputs** (`Ctrl+3`), and **Settings** (`Ctrl+4`). Settings contains Notes AI, Speaker
+Identification, and About tabs. The
 capture toolbar and the status bar sit outside the page switch, so a recording in progress stays
 visible and stoppable from any page.
 
@@ -66,11 +67,16 @@ lines already decoded.
 Transcript lines are editable in place — Whisper reliably mangles proper nouns, and these notes
 are your record, so fixing "Dan Whitfield" once beats finding it wrong three weeks later.
 
-When a meeting has more than one voice, the finished transcript uses anonymous, session-local
-labels such as `Speaker 1` and `Speaker 2`. A return to an earlier voice reuses its original label
-when the voice model can match it; otherwise a new anonymous label still makes the speaker change
-visible. Nothing is looked up against an account or people database. The labels can be renamed
-across the whole session from the Meeting header after recording stops.
+When a meeting has more than one voice, the finished transcript initially uses labels such as
+`Speaker 1` and `Speaker 2`. Rename one from the Meeting header after recording stops and
+WhisperNotes keeps its local voice profile; later detections can use that name automatically.
+Nothing is looked up against an account or people database.
+
+Voice profiles are separate from names. If diarization falsely splits one person into two detected
+voices, rename both profiles to the same person. Both acoustic profiles remain stored, and either
+one resolves to the shared name on a later recording. The Speaker Identification settings tab
+shows every profile separately and lets you adjust its display name. Profiles remain on this
+device in `speaker-profiles.json` beside the app settings.
 
 ### Notes
 

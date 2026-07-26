@@ -30,6 +30,8 @@ public sealed class AppServices
 
     public required ISpeakerAttributorFactory Diarizers { get; init; }
 
+    public required ISpeakerProfileStore SpeakerProfiles { get; init; }
+
     public required IRecordedMediaTranscriptionService RecordedMedia { get; init; }
 
     public required INoteRepository Notes { get; init; }
@@ -74,6 +76,7 @@ public sealed class AppServices
             TranscriberFactory = new FakeTranscriberFactory(),
             ModelStore = new FakeWhisperModelStore(),
             Diarizers = new FakeSpeakerAttributorFactory(),
+            SpeakerProfiles = new FakeSpeakerProfileStore(),
             RecordedMedia = new FakeRecordedMediaTranscriptionService(notes),
             Notes = notes,
             Settings = settings,
@@ -100,6 +103,7 @@ public sealed class AppServices
             TranscriberFactory = core.Transcribers,
             ModelStore = core.Models,
             Diarizers = core.Diarizers,
+            SpeakerProfiles = core.SpeakerProfiles,
             RecordedMedia = core.RecordedMedia,
             Notes = core.Notes,
             Settings = core.SettingsStore,
@@ -138,6 +142,7 @@ public sealed class AppServices
                 TranscriberFactory = fallback.TranscriberFactory,
                 ModelStore = fallback.ModelStore,
                 Diarizers = fallback.Diarizers,
+                SpeakerProfiles = fallback.SpeakerProfiles,
                 RecordedMedia = fallback.RecordedMedia,
                 Notes = fallback.Notes,
                 Settings = fallback.Settings,
